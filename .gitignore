@@ -1,0 +1,54 @@
+# ==========================================
+# GERAL / SISTEMA OPERACIONAL E IDEs
+# ==========================================
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+*.iml
+*.swp
+
+# Anotações e relatórios internos de planejamento
+correcoes_*.md
+guia_*.md
+problemas_*.md
+
+# ==========================================
+# ARQUIVOS DE SEGREDO E VARIÁVEIS DE AMBIENTE
+# ==========================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ==========================================
+# BACKEND (JAVA / MAVEN) - Bese_Projeto
+# ==========================================
+Bese_Projeto/target/
+Bese_Projeto/src/test/
+Bese_Projeto/*.class
+Bese_Projeto/*.jar
+Bese_Projeto/*.war
+Bese_Projeto/*.ear
+Bese_Projeto/.classpath
+Bese_Projeto/.project
+Bese_Projeto/.settings/
+Bese_Projeto/.factorypath
+
+# ==========================================
+# FRONTEND (NODE / REACT / VITE) - Front_Bese_Projeto
+# ==========================================
+Front_Bese_Projeto/node_modules/
+Front_Bese_Projeto/dist/
+Front_Bese_Projeto/dist-ssr/
+Front_Bese_Projeto/.vite/
+Front_Bese_Projeto/coverage/
+Front_Bese_Projeto/npm-debug.log*
+Front_Bese_Projeto/yarn-debug.log*
+Front_Bese_Projeto/yarn-error.log*
