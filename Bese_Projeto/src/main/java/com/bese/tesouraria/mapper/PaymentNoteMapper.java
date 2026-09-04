@@ -32,7 +32,8 @@ public class PaymentNoteMapper {
                 : new ArrayList<>();
 
         BigDecimal total = items.stream()
-                .map(PaymentNoteItem::getValue)
+                .filter(item -> item != null && item.getValue() != null)
+                .map(item -> item.getValue())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         PaymentNote paymentNote = new PaymentNote(

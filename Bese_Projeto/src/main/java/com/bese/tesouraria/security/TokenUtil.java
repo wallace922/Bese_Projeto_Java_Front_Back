@@ -1,12 +1,12 @@
 package com.bese.tesouraria.security;
 
 import com.bese.tesouraria.entity.User;
+import com.bese.tesouraria.enun.Role;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Collections;
 import java.util.Date;
-import jakarta.servlet.http.HttpServletRequest;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
@@ -24,26 +24,25 @@ import java.util.List;
 @Component
 public class TokenUtil {
 
-    private static final String HEADER = "Authorization";
-    private static final String PREFIX = "Bearer ";
     private static final long EXPIRATION = 2 * 60 * 60 * 1000;
     private static final String EMISSOR = "TesourariaBESE__WM";
 
     @Value("${jwt.secret}")
     private String secretKey;
 
-    public String generateToken(User User) {
+    public String generateRawToken(User user) {
         Key secretKey = Keys.hmacShaKeyFor(this.secretKey.getBytes(StandardCharsets.UTF_8));
 
         String token = Jwts.builder()
-                .setSubject(User.getName())
-                .claim("role", User.getRole().name())
+                .setSubject(user.getId().toString())
+                .claim("role", user.getRole().name())
+                .claim("name", user.getName())
                 .setIssuer(EMISSOR)
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
                 .signWith(secretKey)
                 .compact();
 
-        return PREFIX + token;
+        return token;
     }
 
     private boolean isExpirrationValid(Date expiration) {
@@ -58,16 +57,15 @@ public class TokenUtil {
         return username != null && username.length() > 0;
     }
 
-    public Authentication validate(HttpServletRequest request) {
-        String token = request.getHeader(HEADER);
-        if (token == null || !token.startsWith(PREFIX)) {
+    // 2. Validar a string pura do token extraída do Cookie
+    public Authentication validateTokenString(String token) {
+        if (token == null || token.isBlank()) {
             return null;
         }
-        token = token.replace(PREFIX, "");
 
         try {
             Jws<Claims> jwsClaims = Jwts.parserBuilder()
-                    .setSigningKey(secretKey.getBytes())
+                    .setSigningKey(secretKey.getBytes(StandardCharsets.UTF_8))
                     .build()
                     .parseClaimsJws(token);
 
@@ -76,7 +74,8 @@ public class TokenUtil {
             String emissor = jwsClaims.getBody().getIssuer();
             String role = jwsClaims.getBody().get("role", String.class);
 
-            if (isSubjectValid(username) && isExpirrationValid(expiration) && isEmissorValid(emissor) && isRoleValid(role)) {
+            if (isSubjectValid(username) && isExpirrationValid(expiration)
+                    && isEmissorValid(emissor) && isRoleValid(role)) {
                 List<GrantedAuthority> authorities = Collections.singletonList(
                         new SimpleGrantedAuthority("ROLE_" + role));
                 return new UsernamePasswordAuthenticationToken(username, null, authorities);
@@ -89,9 +88,10 @@ public class TokenUtil {
     }
 
     private boolean isRoleValid(String role) {
-        if (role == null) return false;
+        if (role == null)
+            return false;
         try {
-            com.bese.tesouraria.enun.Role.valueOf(role);
+            Role.valueOf(role);
             return true;
         } catch (IllegalArgumentException e) {
             return false;

@@ -25,7 +25,7 @@ function decodeToken(token: string): AuthUser | null {
     const payload = JSON.parse(atob(rawToken.split('.')[1]));
     return {
       role: payload.role as Role,
-      name: payload.sub ?? 'Usuário',
+      name: payload.name ?? 'Usuário',
     };
   } catch {
     return null;

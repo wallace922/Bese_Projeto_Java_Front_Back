@@ -11,23 +11,31 @@ import com.bese.tesouraria.service.UserService;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import com.bese.tesouraria.security.Token;
+
+import com.bese.tesouraria.security.CookieUtil;
+import com.bese.tesouraria.security.TokenUtil;
 
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpHeaders;
 
 @RestController
 @RequestMapping("/API/User")
 public class UserController {
 
+    private final TokenUtil tokenUtil;
+    private final CookieUtil cookieUtil;
     private final UserService userService;
     private final UserMapper mapper;
 
-    public UserController(UserService userService, UserMapper mapper) {
+    public UserController(UserService userService, UserMapper mapper, TokenUtil tokenUtil, CookieUtil cookieUtil) {
         this.userService = userService;
         this.mapper = mapper;
+        this.tokenUtil = tokenUtil;
+        this.cookieUtil = cookieUtil;
     }
 
     @GetMapping
@@ -81,9 +89,14 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Token> login(@Valid @RequestBody LoginRequestDto dto) {
-        User user = mapper.toEntity(dto);
-        Token token = userService.gerarToken(user);
-        return ResponseEntity.ok(token);
+    public ResponseEntity<UserResponseDto> login(@Valid @RequestBody LoginRequestDto dto) {
+
+        String jwtToken = tokenUtil.generateRawToken(userService.autenticar(dto.getCpf(), dto.getPassword()));
+
+        ResponseCookie cookie = cookieUtil.createJwtCookie(jwtToken);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(mapper.toResponseDto(userService.autenticar(dto.getCpf(), dto.getPassword())));
     }
 }

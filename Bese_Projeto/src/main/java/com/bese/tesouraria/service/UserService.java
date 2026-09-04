@@ -4,7 +4,6 @@ import com.bese.tesouraria.entity.User;
 import com.bese.tesouraria.exception.BusinessRuleException;
 import com.bese.tesouraria.exception.EntityNotFoundException;
 import com.bese.tesouraria.repository.UserRepository;
-import com.bese.tesouraria.security.Token;
 import com.bese.tesouraria.security.TokenUtil;
 
 import jakarta.persistence.EntityExistsException;
@@ -72,21 +71,14 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
-    public Boolean validateLogin(String cpf, String rawPassword) {
-        User existingUser = userRepository.findByCpf(cpf)
-                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
-        return passwordEncoder.matches(rawPassword, existingUser.getPassword());
-    }
+    public User autenticar(String cpf, String rawPassword) {
+        User user = userRepository.findByCpf(cpf)
+                .orElseThrow(() -> new BusinessRuleException("CPF ou senha inválidos"));
 
-    public Token gerarToken(User user) {
-        User existingUser = userRepository.findByCpf(user.getCpf())
-                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
-
-        if (!passwordEncoder.matches(user.getPassword(), existingUser.getPassword())) {
-            throw new BusinessRuleException("Usuário ou senha inválidos");
+        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+            throw new BusinessRuleException("CPF ou senha inválidos");
         }
 
-        String jwt = tokenUtil.generateToken(existingUser);
-        return new Token(jwt);
+        return user;
     }
 }
