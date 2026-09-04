@@ -14,7 +14,7 @@ public class CookieUtil {
                 .httpOnly(true) // Proteção XSS (JS não lê)
                 .secure(false) // Em produção com HTTPS, alterar para true
                 .path("/")
-                .maxAge(2 * 60 * 60 * 1000) // 2 horas de validade
+                .maxAge(2 * 60 * 60) // 2 horas de validade (em segundos)
                 .sameSite("Lax") // Proteção CSRF
                 .build();
     }

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { Role } from '../types';
+import { api } from '../services/api';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -9,27 +10,10 @@ interface AuthUser {
 }
 
 interface AuthContextType {
-  token: string | null;
   user: AuthUser | null;
   isAuthenticated: boolean;
-  login: (token: string) => void;
-  logout: () => void;
-}
-
-// ── Decodificação do JWT ───────────────────────────────────────────────────────
-
-function decodeToken(token: string): AuthUser | null {
-  try {
-    // Remove o prefixo "Bearer " caso exista
-    const rawToken = token.startsWith('Bearer ') ? token.slice(7) : token;
-    const payload = JSON.parse(atob(rawToken.split('.')[1]));
-    return {
-      role: payload.role as Role,
-      name: payload.name ?? 'Usuário',
-    };
-  } catch {
-    return null;
-  }
+  login: (cpf: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 // ── Contexto ──────────────────────────────────────────────────────────────────
@@ -39,32 +23,49 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    const saved = localStorage.getItem('token');
-    return saved ? decodeToken(saved) : null;
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
-    if (token) {
-      localStorage.setItem('token', token);
-      setUser(decodeToken(token));
-    } else {
-      localStorage.removeItem('token');
-      setUser(null);
-    }
-  }, [token]);
+    // Testa a sessão tentando acessar uma rota protegida da API.
+    // Se o cookie jwt_token estiver presente, o navegador o enviará automaticamente
+    // e o backend validará a autenticação. Em caso de 401, limpa o estado.
+    api.get('/API/PaymentEmpenho', { params: { page: 0, size: 1 } }).then(
+      () => {
+        setIsAuthenticated(true);
+      },
+      () => {
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    );
+  }, []);
 
-  const login = (newToken: string) => {
-    setToken(newToken);
+  const login = async (cpf: string, password: string) => {
+    try {
+      const res = await api.post<{ id: number; name: string; cpf: string; role: Role }>('/API/User/login', { cpf, password });
+      setIsAuthenticated(true);
+      setUser({ role: res.data.role, name: res.data.name });
+    } catch (error) {
+      setIsAuthenticated(false);
+      setUser(null);
+      throw error;
+    }
   };
 
-  const logout = () => {
-    setToken(null);
+  const logout = async () => {
+    try {
+      await api.post('/API/User/logout');
+    } catch (error) {
+      console.error('Erro ao fazer logout', error);
+    } finally {
+      setIsAuthenticated(false);
+      setUser(null);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, isAuthenticated: !!token, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

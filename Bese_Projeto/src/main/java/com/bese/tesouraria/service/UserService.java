@@ -4,7 +4,6 @@ import com.bese.tesouraria.entity.User;
 import com.bese.tesouraria.exception.BusinessRuleException;
 import com.bese.tesouraria.exception.EntityNotFoundException;
 import com.bese.tesouraria.repository.UserRepository;
-import com.bese.tesouraria.security.TokenUtil;
 
 import jakarta.persistence.EntityExistsException;
 
@@ -20,11 +19,9 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final TokenUtil tokenUtil;
 
-    public UserService(UserRepository userRepository, TokenUtil tokenUtil) {
+    public UserService(UserRepository userRepository) {
         this.userRepository = userRepository;
-        this.tokenUtil = tokenUtil;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 

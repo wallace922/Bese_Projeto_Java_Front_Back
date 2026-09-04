@@ -1,16 +1,21 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { loginUser } from '../services/api';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -22,15 +27,10 @@ export default function Login() {
     }
 
     setLoading(true);
-    const result = await loginUser(cpf.trim(), password);
+    await login(cpf.trim(), password);
     setLoading(false);
 
-    if (result.data?.token) {
-      login(result.data.token);
-      navigate('/', { replace: true });
-    } else {
-      setError(result.errorMessage ?? 'Usuário ou senha inválidos.');
-    }
+    navigate('/', { replace: true });
   };
 
   return (

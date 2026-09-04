@@ -91,12 +91,20 @@ public class UserController {
     @PostMapping("/login")
     public ResponseEntity<UserResponseDto> login(@Valid @RequestBody LoginRequestDto dto) {
 
-        String jwtToken = tokenUtil.generateRawToken(userService.autenticar(dto.getCpf(), dto.getPassword()));
-
+        User user = userService.autenticar(dto.getCpf(), dto.getPassword());
+        String jwtToken = tokenUtil.generateRawToken(user);
         ResponseCookie cookie = cookieUtil.createJwtCookie(jwtToken);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(mapper.toResponseDto(userService.autenticar(dto.getCpf(), dto.getPassword())));
+                .body(mapper.toResponseDto(user));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout() {
+        ResponseCookie cleanCookie = cookieUtil.createCleanJwtCookie();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cleanCookie.toString())
+                .build();
     }
 }

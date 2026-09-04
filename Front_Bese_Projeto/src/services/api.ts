@@ -19,20 +19,9 @@ import { formatDate, toApiDate } from '../lib/utils';
 
 // ── Instância ─────────────────────────────────────────────────────────────────
 
-export const apiInstance = axios.create({
-  baseURL: 'http://localhost:8080/API',
-  headers: { 'Content-Type': 'application/json' },
-});
-
-// ── Interceptor de Autenticação ───────────────────────────────────────────────
-// Injeta automaticamente o header Authorization em todas as requisições.
-
-apiInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = token;
-  }
-  return config;
+export const api = axios.create({
+  baseURL: 'http://localhost:8080',
+  withCredentials: true,
 });
 
 
@@ -143,7 +132,7 @@ export async function getAllPaymentEmpenhos(
   size: number = 20
 ): Promise<ApiResult<PaginatedResponse<PaymentNoteEmpenhoDto>>> {
   try {
-    const res = await apiInstance.get<PaginatedResponse<PaymentNoteEmpenhoDto>>('/PaymentEmpenho', {
+    const res = await api.get<PaginatedResponse<PaymentNoteEmpenhoDto>>('/API/PaymentEmpenho', {
       params: { page, size },
     });
     return { data: res.data, status: res.status, errorMessage: null };
@@ -152,7 +141,7 @@ export async function getAllPaymentEmpenhos(
 
 export async function savePaymentEmpenho(dto: PaymentNoteEmpenhoDto): Promise<ApiResult<PaymentNoteEmpenhoDto>> {
   try {
-    const res = await apiInstance.post<PaymentNoteEmpenhoDto>('/PaymentEmpenho', dto);
+    const res = await api.post<PaymentNoteEmpenhoDto>('/API/PaymentEmpenho', dto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -194,7 +183,7 @@ export async function updatePaymentEmpenho(
         : null,
       value: payload.value,
     };
-    const res = await apiInstance.put<PaymentNoteEmpenhoBasicDto>('/PaymentEmpenho', body);
+    const res = await api.put<PaymentNoteEmpenhoBasicDto>('/API/PaymentEmpenho', body);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -202,7 +191,7 @@ export async function updatePaymentEmpenho(
 /** DELETE /API/PaymentEmpenho/{id} — remove um vínculo. Requer ADMIN. */
 export async function deletePaymentEmpenho(id: number): Promise<ApiResult<void>> {
   try {
-    const res = await apiInstance.delete<void>(`/PaymentEmpenho/${id}`);
+    const res = await api.delete<void>(`/API/PaymentEmpenho/${id}`);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -218,7 +207,7 @@ export async function getPaymentEmpenhoByMesAno(
   size: number = 20
 ): Promise<ApiResult<PaginatedResponse<PaymentNoteVinculacaoDto>>> {
   try {
-    const res = await apiInstance.get<PaginatedResponse<PaymentNoteVinculacaoDto>>('/PaymentEmpenho/por-mes-ano', {
+    const res = await api.get<PaginatedResponse<PaymentNoteVinculacaoDto>>('/API/PaymentEmpenho/por-mes-ano', {
       params: { mes, ano, page, size },
     });
     return { data: res.data, status: res.status, errorMessage: null };
@@ -234,7 +223,7 @@ export async function getPaymentEmpenhoSemPlanejamento(
   size: number = 20
 ): Promise<ApiResult<PaginatedResponse<PaymentNoteEmpenhoBasicDto>>> {
   try {
-    const res = await apiInstance.get<PaginatedResponse<PaymentNoteEmpenhoBasicDto>>('/PaymentEmpenho/sem-planejamento', {
+    const res = await api.get<PaginatedResponse<PaymentNoteEmpenhoBasicDto>>('/API/PaymentEmpenho/sem-planejamento', {
       params: { page, size },
     });
     return { data: res.data, status: res.status, errorMessage: null };
@@ -245,7 +234,7 @@ export async function getPaymentEmpenhoSemPlanejamento(
 
 export async function findNpByNumeroEAno(numeroNp: number, date: number): Promise<ApiResult<PaymentNoteDto>> {
   try {
-    const res = await apiInstance.get<PaymentNoteDto[] | PaymentNoteDto>(`/Np/${numeroNp}/${date}`);
+    const res = await api.get<PaymentNoteDto[] | PaymentNoteDto>(`/API/Np/${numeroNp}/${date}`);
     const data = Array.isArray(res.data) ? res.data[0] : res.data;
     return { data: data || null, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
@@ -256,7 +245,7 @@ export async function getAllNp(
   size: number = 50
 ): Promise<ApiResult<PaginatedResponse<PaymentNoteDto>>> {
   try {
-    const res = await apiInstance.get<PaginatedResponse<PaymentNoteDto>>('/Np', {
+    const res = await api.get<PaginatedResponse<PaymentNoteDto>>('/API/Np', {
       params: { page, size },
     });
     return { data: res.data, status: res.status, errorMessage: null };
@@ -282,7 +271,7 @@ export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<Pa
         ? { datePayment: formatDate(dto.datePayment) }
         : {}),
     };
-    const res = await apiInstance.post<PaymentNoteDto>('/Np', payload);
+    const res = await api.post<PaymentNoteDto>('/API/Np', payload);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -307,7 +296,7 @@ export async function updatePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<
         ? { datePayment: formatDate(dto.datePayment) }
         : {}),
     };
-    const res = await apiInstance.put<PaymentNoteDto>('/Np', payload);
+    const res = await api.put<PaymentNoteDto>('/API/Np', payload);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -316,7 +305,7 @@ export async function updatePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<
 
 export async function findEmpenhoByNumeroEAno(numero: number, date: number): Promise<ApiResult<EmpenhoDto>> {
   try {
-    const res = await apiInstance.get<EmpenhoDto[] | EmpenhoDto>(`/Empenho/${numero}/${date}`);
+    const res = await api.get<EmpenhoDto[] | EmpenhoDto>(`/API/Empenho/${numero}/${date}`);
     const data = Array.isArray(res.data) ? res.data[0] : res.data;
     return { data: data || null, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
@@ -327,7 +316,7 @@ export async function getAllEmpenho(
   size: number = 50
 ): Promise<ApiResult<PaginatedResponse<EmpenhoDto>>> {
   try {
-    const res = await apiInstance.get<PaginatedResponse<EmpenhoDto>>('/Empenho', {
+    const res = await api.get<PaginatedResponse<EmpenhoDto>>('/API/Empenho', {
       params: { page, size },
     });
     return { data: res.data, status: res.status, errorMessage: null };
@@ -336,14 +325,14 @@ export async function getAllEmpenho(
 
 export async function saveEmpenho(dto: EmpenhoDto): Promise<ApiResult<EmpenhoDto>> {
   try {
-    const res = await apiInstance.post<EmpenhoDto>('/Empenho', dto);
+    const res = await api.post<EmpenhoDto>('/API/Empenho', dto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
 
 export async function updateEmpenho(dto: EmpenhoDto): Promise<ApiResult<EmpenhoDto>> {
   try {
-    const res = await apiInstance.put<EmpenhoDto>('/Empenho', dto);
+    const res = await api.put<EmpenhoDto>('/API/Empenho', dto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -352,7 +341,7 @@ export async function updateEmpenho(dto: EmpenhoDto): Promise<ApiResult<EmpenhoD
 
 export async function findFinancialPlanningByNumber(numero: number, ano: number): Promise<ApiResult<FinancialPlanningDto>> {
   try {
-    const res = await apiInstance.get<FinancialPlanningDto>(`/FinancialPlanning/${numero}/${ano}`);
+    const res = await api.get<FinancialPlanningDto>(`/API/FinancialPlanning/${numero}/${ano}`);
     return { data: res.data || null, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -362,7 +351,7 @@ export async function getAllFinancialPlanning(
   size: number = 50
 ): Promise<ApiResult<PaginatedResponse<FinancialPlanningDto>>> {
   try {
-    const res = await apiInstance.get<PaginatedResponse<FinancialPlanningDto>>('/FinancialPlanning', {
+    const res = await api.get<PaginatedResponse<FinancialPlanningDto>>('/API/FinancialPlanning', {
       params: { page, size },
     });
     return { data: res.data, status: res.status, errorMessage: null };
@@ -372,7 +361,7 @@ export async function getAllFinancialPlanning(
 export async function saveFinancialPlanning(dto: FinancialPlanningDto): Promise<ApiResult<FinancialPlanningDto>> {
   try {
     const formattedDto = { ...dto, data: formatDate(dto.data) };
-    const res = await apiInstance.post<FinancialPlanningDto>('/FinancialPlanning', formattedDto);
+    const res = await api.post<FinancialPlanningDto>('/API/FinancialPlanning', formattedDto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -380,7 +369,7 @@ export async function saveFinancialPlanning(dto: FinancialPlanningDto): Promise<
 export async function updateFinancialPlanning(dto: FinancialPlanningDto): Promise<ApiResult<FinancialPlanningDto>> {
   try {
     const formattedDto = { ...dto, data: formatDate(dto.data) };
-    const res = await apiInstance.put<FinancialPlanningDto>('/FinancialPlanning', formattedDto);
+    const res = await api.put<FinancialPlanningDto>('/API/FinancialPlanning', formattedDto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -389,7 +378,7 @@ export async function updateFinancialPlanning(dto: FinancialPlanningDto): Promis
 
 export async function findEmpresaByCnpj(cnpj: string): Promise<ApiResult<EmpresaDto>> {
   try {
-    const res = await apiInstance.get<EmpresaDto[] | EmpresaDto>(`/Empresa/${cnpj}`);
+    const res = await api.get<EmpresaDto[] | EmpresaDto>(`/API/Empresa/${cnpj}`);
     const dataArray = Array.isArray(res.data) ? res.data : (res.data ? [res.data] : []);
     const data = dataArray.find((e) => String(e.cnpj).replace(/\D/g, '') === cnpj) || dataArray[0] || null;
     return { data, status: res.status, errorMessage: null };
@@ -401,7 +390,7 @@ export async function getAllEmpresa(
   size: number = 50
 ): Promise<ApiResult<PaginatedResponse<EmpresaDto>>> {
   try {
-    const res = await apiInstance.get<PaginatedResponse<EmpresaDto>>('/Empresa', {
+    const res = await api.get<PaginatedResponse<EmpresaDto>>('/API/Empresa', {
       params: { page, size },
     });
     return { data: res.data, status: res.status, errorMessage: null };
@@ -410,14 +399,14 @@ export async function getAllEmpresa(
 
 export async function saveEmpresa(dto: EmpresaDto): Promise<ApiResult<EmpresaDto>> {
   try {
-    const res = await apiInstance.post<EmpresaDto>('/Empresa', dto);
+    const res = await api.post<EmpresaDto>('/API/Empresa', dto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
 
 export async function updateEmpresa(dto: EmpresaDto): Promise<ApiResult<EmpresaDto>> {
   try {
-    const res = await apiInstance.put<EmpresaDto>('/Empresa', dto);
+    const res = await api.put<EmpresaDto>('/API/Empresa', dto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -429,7 +418,7 @@ export async function updateEmpresa(dto: EmpresaDto): Promise<ApiResult<EmpresaD
  */
 export async function getAllTaxRules(): Promise<ApiResult<TaxRuleDto[]>> {
   try {
-    const res = await apiInstance.get<TaxRuleDto[]>('/TaxRule');
+    const res = await api.get<TaxRuleDto[]>('/API/TaxRule');
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -439,7 +428,7 @@ export async function getAllTaxRules(): Promise<ApiResult<TaxRuleDto[]>> {
  */
 export async function getTaxRuleById(id: number): Promise<ApiResult<TaxRuleDto>> {
   try {
-    const res = await apiInstance.get<TaxRuleDto>(`/TaxRule/${id}`);
+    const res = await api.get<TaxRuleDto>(`/API/TaxRule/${id}`);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -456,7 +445,7 @@ export async function createTaxRuleVersion(dto: Omit<TaxRuleDto, 'id'>): Promise
       dataInicioVigencia: formatDate(dto.dataInicioVigencia),
       dataFimVigencia: dto.dataFimVigencia ? formatDate(dto.dataFimVigencia) : null,
     };
-    const res = await apiInstance.post<TaxRuleDto>('/TaxRule', payload);
+    const res = await api.post<TaxRuleDto>('/API/TaxRule', payload);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -478,7 +467,7 @@ export async function updateTaxRule(
       dataInicioVigencia: formatDate(dto.dataInicioVigencia),
       dataFimVigencia: dto.dataFimVigencia ? formatDate(dto.dataFimVigencia) : null,
     };
-    const res = await apiInstance.put<TaxRuleDto>(`/TaxRule/${id}`, payload);
+    const res = await api.put<TaxRuleDto>(`/API/TaxRule/${id}`, payload);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -499,7 +488,7 @@ export async function getOpcoesReceitaPorEfd(
 ): Promise<ApiResult<TaxRuleOption[]>> {
   try {
     const formattedDate = toApiDate(data);
-    const res = await apiInstance.get<TaxRuleOption[]>('/TaxRule/opcoes', {
+    const res = await api.get<TaxRuleOption[]>('/API/TaxRule/opcoes', {
       params: { codEfd, data: formattedDate },
     });
     return { data: res.data, status: res.status, errorMessage: null };
@@ -508,13 +497,13 @@ export async function getOpcoesReceitaPorEfd(
 
 // ── User ──────────────────────────────────────────────────────────────────────
 
-/** POST /API/User/login — autentica o usuário e retorna o token JWT. */
+/** POST /API/User/login — autentica o usuário. Token é enviado via cookie HttpOnly. */
 export async function loginUser(
   cpf: string,
   password: string
-): Promise<ApiResult<{ token: string }>> {
+): Promise<ApiResult<UserDto>> {
   try {
-    const res = await apiInstance.post<{ token: string }>('/User/login', { cpf, password });
+    const res = await api.post<UserDto>('/API/User/login', { cpf, password });
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -525,7 +514,7 @@ export async function getAllUsers(
   size: number = 20
 ): Promise<ApiResult<PageDto<UserDto>>> {
   try {
-    const res = await apiInstance.get<PageDto<UserDto>>('/User', { params: { page, size } });
+    const res = await api.get<PageDto<UserDto>>('/API/User', { params: { page, size } });
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -533,7 +522,7 @@ export async function getAllUsers(
 /** GET /API/User/{cpf} — busca usuário por CPF. Requer ADMIN. */
 export async function getUserByCpf(cpf: string): Promise<ApiResult<UserDto>> {
   try {
-    const res = await apiInstance.get<UserDto>(`/User/${cpf}`);
+    const res = await api.get<UserDto>(`/API/User/${cpf}`);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -541,7 +530,7 @@ export async function getUserByCpf(cpf: string): Promise<ApiResult<UserDto>> {
 /** POST /API/User — cria novo usuário. Requer ADMIN. */
 export async function createUser(dto: UserCreateDto): Promise<ApiResult<UserDto>> {
   try {
-    const res = await apiInstance.post<UserDto>('/User', dto);
+    const res = await api.post<UserDto>('/API/User', dto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -549,7 +538,7 @@ export async function createUser(dto: UserCreateDto): Promise<ApiResult<UserDto>
 /** PUT /API/User/{id} — atualiza usuário existente. Requer ADMIN. */
 export async function updateUser(id: number, dto: UserUpdateDto): Promise<ApiResult<UserDto>> {
   try {
-    const res = await apiInstance.put<UserDto>(`/User/${id}`, dto);
+    const res = await api.put<UserDto>(`/API/User/${id}`, dto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -557,7 +546,7 @@ export async function updateUser(id: number, dto: UserUpdateDto): Promise<ApiRes
 /** DELETE /API/User/{id} — remove usuário. Requer ADMIN. */
 export async function deleteUser(id: number): Promise<ApiResult<void>> {
   try {
-    const res = await apiInstance.delete<void>(`/User/${id}`);
+    const res = await api.delete<void>(`/API/User/${id}`);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
