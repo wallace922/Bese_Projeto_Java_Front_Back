@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -28,6 +29,7 @@ public class TaxRuleController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<List<TaxRuleDto>> findAll() {
         List<TaxRuleDto> dtos = taxRuleService.findAll().stream()
                 .map(taxRuleMapper::toDto)
@@ -36,17 +38,21 @@ public class TaxRuleController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<TaxRuleDto> findById(@PathVariable Long id) {
         return ResponseEntity.ok(taxRuleMapper.toDto(taxRuleService.findById(id)));
     }
 
     /**
      * GET /API/TaxRule/opcoes?codEfd={n}&data={yyyy-MM-dd}
-     * Retorna todas as regras de imposto vigentes para um EFD em uma data específica.
+     * Retorna todas as regras de imposto vigentes para um EFD em uma data
+     * específica.
      * <ul>
-     *   <li>0 resultados → nenhuma regra ativa para este EFD/data.</li>
-     *   <li>1 resultado  → o front pode preencher o código de receita automaticamente.</li>
-     *   <li>N resultados → o front deve exibir um select para o usuário escolher.</li>
+     * <li>0 resultados → nenhuma regra ativa para este EFD/data.</li>
+     * <li>1 resultado → o front pode preencher o código de receita
+     * automaticamente.</li>
+     * <li>N resultados → o front deve exibir um select para o usuário
+     * escolher.</li>
      * </ul>
      *
      * @param codEfd O código EFD.
@@ -54,6 +60,7 @@ public class TaxRuleController {
      * @return Lista de TaxRuleDto vigentes.
      */
     @GetMapping("/opcoes")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<List<TaxRuleDto>> findOpcoesPorEfd(
             @RequestParam Integer codEfd,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data) {
@@ -66,13 +73,15 @@ public class TaxRuleController {
     /**
      * POST /API/TaxRule
      * Cria uma nova versão de uma regra de imposto.
-     * Se uma regra anterior para o mesmo codEfd estava em aberto (dataFimVigencia = null),
+     * Se uma regra anterior para o mesmo codEfd estava em aberto (dataFimVigencia =
+     * null),
      * ela será encerrada um dia antes do início da nova regra.
      *
      * @param dto DTO da nova regra, incluindo a data de início da vigência.
      * @return A regra criada, com status 201.
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<TaxRuleDto> save(@Valid @RequestBody TaxRuleDto dto) {
         TaxRule ruleToSave = taxRuleMapper.toEntity(dto);
         TaxRule savedRule = taxRuleService.save(ruleToSave);
@@ -91,6 +100,7 @@ public class TaxRuleController {
      * @return A regra atualizada.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<TaxRuleDto> update(@PathVariable Long id, @Valid @RequestBody TaxRuleUpdateDto dto) {
         TaxRule updatedRule = taxRuleService.update(id, dto);
         return ResponseEntity.ok(taxRuleMapper.toDto(updatedRule));

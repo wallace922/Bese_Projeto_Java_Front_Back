@@ -19,6 +19,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpHeaders;
 
@@ -39,6 +41,7 @@ public class UserController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<PageDto<UserResponseDto>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -57,12 +60,21 @@ public class UserController {
     }
 
     @GetMapping("/{cpf}")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<UserResponseDto> findByCpf(@PathVariable String cpf) {
         User user = userService.findByCpf(cpf);
         return ResponseEntity.ok(mapper.toResponseDto(user));
     }
 
+    @GetMapping("/me")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<UserResponseDto> me(Authentication authentication) {
+        Long id = Long.parseLong(authentication.getName());
+        return ResponseEntity.ok(mapper.toResponseDto(userService.findById(id)));
+    }
+
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<UserResponseDto> save(@Valid @RequestBody UserCreateDto dto) {
         User entity = mapper.toEntity(dto);
         User savedUser = userService.save(entity);
@@ -70,6 +82,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<UserResponseDto> update(
             @NotNull @PathVariable Long id,
             @Valid @RequestBody UserUpdateDto dto) {
@@ -83,12 +96,14 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
     public void deleteById(@NotNull @PathVariable Long id) {
         userService.delete(id);
     }
 
     @PostMapping("/login")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<UserResponseDto> login(@Valid @RequestBody LoginRequestDto dto) {
 
         User user = userService.autenticar(dto.getCpf(), dto.getPassword());
@@ -101,6 +116,7 @@ public class UserController {
     }
 
     @PostMapping("/logout")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Void> logout() {
         ResponseCookie cleanCookie = cookieUtil.createCleanJwtCookie();
         return ResponseEntity.ok()

@@ -11,7 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/API/Empresa")
@@ -20,15 +20,16 @@ public class EmpresaController {
     private final EmpresaService empresaService;
     private final EmpresaMapper mapper;
 
-    public EmpresaController(EmpresaService empresaService, EmpresaMapper mapper){
+    public EmpresaController(EmpresaService empresaService, EmpresaMapper mapper) {
         this.empresaService = empresaService;
         this.mapper = mapper;
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PageDto<EmpresaDto>> findAll(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size){
+            @RequestParam(defaultValue = "20") int size) {
         Page<Empresa> empresas = empresaService.findAll(page, size);
         Page<EmpresaDto> empresaDtos = empresas.map(mapper::toDto);
 
@@ -38,32 +39,35 @@ public class EmpresaController {
                 empresas.getSize(),
                 empresas.getTotalElements(),
                 empresas.getTotalPages(),
-                empresas.isLast()
-        );
+                empresas.isLast());
 
         return ResponseEntity.ok(pageDto);
     }
 
     @PostMapping
-    public ResponseEntity<EmpresaDto> save(@Valid @RequestBody EmpresaDto empresaDto){
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<EmpresaDto> save(@Valid @RequestBody EmpresaDto empresaDto) {
         Empresa empresa = empresaService.save(mapper.toEntity(empresaDto));
         return ResponseEntity.status(201).body(mapper.toDto(empresa));
     }
 
     @PutMapping
-    public ResponseEntity<EmpresaDto> update(@Valid @RequestBody EmpresaDto empresaDto){
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<EmpresaDto> update(@Valid @RequestBody EmpresaDto empresaDto) {
         Empresa empresa = empresaService.update(mapper.toEntity(empresaDto));
-        return  ResponseEntity.status(202).body(mapper.toDto(empresa));
+        return ResponseEntity.status(202).body(mapper.toDto(empresa));
     }
 
     @GetMapping("/{Cnpj}")
-    public ResponseEntity<EmpresaDto> findByCnpj(@Valid @PathVariable String Cnpj){
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<EmpresaDto> findByCnpj(@Valid @PathVariable String Cnpj) {
         Empresa empresa = empresaService.findyByCnpj(Cnpj);
         return ResponseEntity.status(200).body(mapper.toDto(empresa));
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public void deleteById(@NotNull @PathVariable Long id) {
         empresaService.delete(id);
     }

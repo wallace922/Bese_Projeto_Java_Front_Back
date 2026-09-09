@@ -34,6 +34,10 @@ public class UserService {
         return userRepository.findByCpf(cpf).orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
     }
 
+    public User findById(Long id) {
+        return userRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
+    }
+
     public User save(User user) {
         if (userRepository.findByCpf(user.getCpf()).isPresent()) {
             throw new EntityExistsException("Usuário já cadastrado com este CPF");

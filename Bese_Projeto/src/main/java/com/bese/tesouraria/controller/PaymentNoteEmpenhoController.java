@@ -12,9 +12,9 @@ import jakarta.validation.constraints.Min;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
 
 @Validated
 @RestController
@@ -25,12 +25,13 @@ public class PaymentNoteEmpenhoController {
     private final PaymentNoteEmpenhoMapper mapper;
 
     public PaymentNoteEmpenhoController(PaymentNoteEmpenhoService service,
-                                        PaymentNoteEmpenhoMapper mapper) {
+            PaymentNoteEmpenhoMapper mapper) {
         this.service = service;
         this.mapper = mapper;
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PageDto<PaymentNoteEmpenhoBasicDto>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -43,13 +44,13 @@ public class PaymentNoteEmpenhoController {
                 entitiesPage.getSize(),
                 entitiesPage.getTotalElements(),
                 entitiesPage.getTotalPages(),
-                entitiesPage.isLast()
-        );
+                entitiesPage.isLast());
 
         return ResponseEntity.ok(pageDto);
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PaymentNoteEmpenhoBasicDto> save(
             @Valid @RequestBody PaymentNoteEmpenhoBasicDto dto) {
         PaymentNoteEmpenho paymentNoteEmpenho = service.save(mapper.toEntity(dto));
@@ -57,6 +58,7 @@ public class PaymentNoteEmpenhoController {
     }
 
     @PutMapping
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PaymentNoteEmpenhoBasicDto> update(
             @Valid @RequestBody PaymentNoteEmpenhoBasicDto dto) {
         PaymentNoteEmpenho paymentNoteEmpenho = service.update(mapper.toEntity(dto));
@@ -66,17 +68,17 @@ public class PaymentNoteEmpenhoController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public void deleteById(@PathVariable Long id) {
         service.delete(id);
     }
 
     @GetMapping("/por-mes-ano")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PageDto<PaymentNoteVinculacaoDto>> findByMesAndAno(
-            @RequestParam @Min(value = 1,    message = "Mês deve ser entre 1 e 12")
-                          @Max(value = 12,   message = "Mês deve ser entre 1 e 12") Integer mes,
-            @RequestParam @Min(value = 1900, message = "Ano deve ter 4 dígitos e ser >= 1900")
-                          @Max(value = 2050, message = "Ano não pode ser maior que 2050")  Integer ano,
-            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam @Min(value = 1, message = "Mês deve ser entre 1 e 12") @Max(value = 12, message = "Mês deve ser entre 1 e 12") Integer mes,
+            @RequestParam @Min(value = 1900, message = "Ano deve ter 4 dígitos e ser >= 1900") @Max(value = 2050, message = "Ano não pode ser maior que 2050") Integer ano,
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
         Page<PaymentNoteVinculacaoDto> resultado = service.findByMesAndAno(mes, ano, page, size);
@@ -87,15 +89,15 @@ public class PaymentNoteEmpenhoController {
                 resultado.getSize(),
                 resultado.getTotalElements(),
                 resultado.getTotalPages(),
-                resultado.isLast()
-        );
+                resultado.isLast());
 
         return ResponseEntity.ok(pageDto);
     }
 
     @GetMapping("/sem-planejamento")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PageDto<PaymentNoteEmpenhoBasicDto>> findSemFinancialPlanning(
-            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
         Page<PaymentNoteEmpenhoBasicDto> resultado = service.findSemFinancialPlanning(page, size);
@@ -106,8 +108,7 @@ public class PaymentNoteEmpenhoController {
                 resultado.getSize(),
                 resultado.getTotalElements(),
                 resultado.getTotalPages(),
-                resultado.isLast()
-        );
+                resultado.isLast());
 
         return ResponseEntity.ok(pageDto);
     }

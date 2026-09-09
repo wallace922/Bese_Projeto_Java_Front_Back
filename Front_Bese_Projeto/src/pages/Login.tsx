@@ -27,10 +27,14 @@ export default function Login() {
     }
 
     setLoading(true);
-    await login(cpf.trim(), password);
-    setLoading(false);
-
-    navigate('/', { replace: true });
+    try {
+      await login(cpf.trim(), password);
+      navigate('/', { replace: true });
+    } catch {
+      setError('CPF ou senha inválidos. Verifique e tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

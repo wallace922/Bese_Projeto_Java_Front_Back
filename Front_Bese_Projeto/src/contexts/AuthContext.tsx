@@ -27,18 +27,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
-    // Testa a sessão tentando acessar uma rota protegida da API.
+    setIsAuthenticated(false);
+    setUser(null);
+
+    // Recupera o perfil do usuário autenticado via cookie HttpOnly.
     // Se o cookie jwt_token estiver presente, o navegador o enviará automaticamente
     // e o backend validará a autenticação. Em caso de 401, limpa o estado.
-    api.get('/API/PaymentEmpenho', { params: { page: 0, size: 1 } }).then(
-      () => {
+    const loadSession = async () => {
+      try {
+        const res = await api.get<{ id: number; name: string; cpf: string; role: Role }>('/API/User/me');
+        setUser({ role: res.data.role, name: res.data.name });
         setIsAuthenticated(true);
-      },
-      () => {
+      } catch {
         setIsAuthenticated(false);
         setUser(null);
       }
-    );
+    };
+    loadSession();
   }, []);
 
   const login = async (cpf: string, password: string) => {

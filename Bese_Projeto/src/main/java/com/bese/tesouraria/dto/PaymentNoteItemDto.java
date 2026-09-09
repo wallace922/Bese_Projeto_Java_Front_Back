@@ -22,7 +22,8 @@ public class PaymentNoteItemDto {
     /**
      * Campo legado — retorna o primeiro grupo de imposto da lista {@code taxes}.
      *
-     * <p>Mantido para compatibilidade retroativa com o frontend antigo.
+     * <p>
+     * Mantido para compatibilidade retroativa com o frontend antigo.
      * O frontend novo deve usar {@link #taxes} para ler e enviar múltiplos grupos.
      *
      * @deprecated Usar {@link #taxes}.
@@ -36,7 +37,8 @@ public class PaymentNoteItemDto {
      * Cada grupo pode vir de um {@code codEfd}/{@code codigoReceita} diferente,
      * todos calculados sobre o mesmo {@code value}.
      *
-     * <p>O frontend novo usa este campo. O frontend legado usa {@link #tax}
+     * <p>
+     * O frontend novo usa este campo. O frontend legado usa {@link #tax}
      * (singular) — o mapper converte automaticamente entre os dois formatos.
      */
     @Valid
@@ -47,7 +49,8 @@ public class PaymentNoteItemDto {
      * O ajuste manual agora é por grupo de imposto (campo {@code manualAdjustment}
      * dentro de cada {@link TaxDto} em {@link #taxes}).
      *
-     * <p>Mantido para compatibilidade com payloads do frontend legado que ainda
+     * <p>
+     * Mantido para compatibilidade com payloads do frontend legado que ainda
      * enviam este campo no nível do item. O mapper propagará o valor para o
      * único grupo da lista.
      *

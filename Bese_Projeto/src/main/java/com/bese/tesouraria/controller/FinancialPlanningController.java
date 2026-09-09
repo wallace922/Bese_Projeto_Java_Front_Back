@@ -11,7 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/API/FinancialPlanning")
@@ -20,15 +20,17 @@ public class FinancialPlanningController {
     private final FinancialPlanningService financialPlanningService;
     private final FinancialPlanningMapper mapper;
 
-    public FinancialPlanningController(FinancialPlanningService financialPlanningService, FinancialPlanningMapper mapper){
+    public FinancialPlanningController(FinancialPlanningService financialPlanningService,
+            FinancialPlanningMapper mapper) {
         this.financialPlanningService = financialPlanningService;
         this.mapper = mapper;
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PageDto<FinancialPlanningBasicDto>> findAll(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size){
+            @RequestParam(defaultValue = "20") int size) {
         Page<FinancialPlanning> plannings = financialPlanningService.findAll(page, size);
         Page<FinancialPlanningBasicDto> planningDtos = plannings.map(mapper::toDto);
 
@@ -38,35 +40,41 @@ public class FinancialPlanningController {
                 plannings.getSize(),
                 plannings.getTotalElements(),
                 plannings.getTotalPages(),
-                plannings.isLast()
-        );
+                plannings.isLast());
 
         return ResponseEntity.ok(pageDto);
     }
 
     @PostMapping
-    public ResponseEntity<FinancialPlanningBasicDto> save(@Valid @RequestBody FinancialPlanningBasicDto financialPlanningBasicDto){
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<FinancialPlanningBasicDto> save(
+            @Valid @RequestBody FinancialPlanningBasicDto financialPlanningBasicDto) {
         FinancialPlanning financialPlanning = financialPlanningService.save(mapper.toEntity(financialPlanningBasicDto));
-        return  ResponseEntity.status(201).body(mapper.toDto(financialPlanning));
+        return ResponseEntity.status(201).body(mapper.toDto(financialPlanning));
     }
 
     @PutMapping
-    public ResponseEntity<FinancialPlanningBasicDto> update(@Valid @RequestBody FinancialPlanningBasicDto financialPlanningBasicDto){
-        FinancialPlanning financialPlanning = financialPlanningService.update(mapper.toEntity(financialPlanningBasicDto));
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<FinancialPlanningBasicDto> update(
+            @Valid @RequestBody FinancialPlanningBasicDto financialPlanningBasicDto) {
+        FinancialPlanning financialPlanning = financialPlanningService
+                .update(mapper.toEntity(financialPlanningBasicDto));
         return ResponseEntity.status(202).body(mapper.toDto(financialPlanning));
     }
 
     @GetMapping("/{numero}/{ano}")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<FinancialPlanningBasicDto> findByNumeroAndAno(
             @PathVariable Integer numero,
-            @PathVariable Integer ano){
+            @PathVariable Integer ano) {
         FinancialPlanning financialPlanning = financialPlanningService.findByNumeroAndAno(numero, ano);
         return ResponseEntity.ok(mapper.toDto(financialPlanning));
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
-    public void deleteById(@NotNull @PathVariable Long id){
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    public void deleteById(@NotNull @PathVariable Long id) {
         financialPlanningService.delete(id);
     }
 }
