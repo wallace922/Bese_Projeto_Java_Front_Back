@@ -6,6 +6,8 @@ import com.bese.tesouraria.mapper.PaymentNoteMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,20 +32,11 @@ public class PaymentNoteController {
 	@GetMapping
 	@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 	public ResponseEntity<PageDto<PaymentNoteBasicDto>> findAll(
-			@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "20") int size) {
-		Page<PaymentNote> notes = service.findAll(page, size);
+			@PageableDefault(size = 20) Pageable pageable) {
+		Page<PaymentNote> notes = service.findAll(pageable.getPageNumber(), pageable.getPageSize());
 		Page<PaymentNoteBasicDto> noteDtos = notes.map(mapper::toDto);
 
-		PageDto<PaymentNoteBasicDto> pageDto = new PageDto<>(
-				noteDtos.getContent(),
-				notes.getNumber(),
-				notes.getSize(),
-				notes.getTotalElements(),
-				notes.getTotalPages(),
-				notes.isLast());
-
-		return ResponseEntity.ok(pageDto);
+		return ResponseEntity.ok(PageDto.of(noteDtos));
 	}
 
 	@PostMapping

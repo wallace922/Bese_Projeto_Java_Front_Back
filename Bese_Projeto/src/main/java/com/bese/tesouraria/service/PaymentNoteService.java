@@ -7,13 +7,14 @@ import com.bese.tesouraria.entity.Tax;
 import com.bese.tesouraria.enun.StatusPaymentNote;
 import com.bese.tesouraria.exception.BusinessRuleException;
 import com.bese.tesouraria.exception.EntityNotFoundException;
+import com.bese.tesouraria.repository.PaymentNoteEmpenhoRepository;
 import com.bese.tesouraria.repository.PaymentNoteRepository;
 import jakarta.persistence.EntityExistsException;
-import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
@@ -24,14 +25,17 @@ import java.util.Set;
 public class PaymentNoteService {
 
     private final PaymentNoteRepository paymentNoteRepository;
+    private final PaymentNoteEmpenhoRepository paymentNoteEmpenhoRepository;
     private final TaxCalculator taxCalculator;
     private final EmpresaService empresaService;
 
     public PaymentNoteService(
             PaymentNoteRepository paymentNoteRepository,
+            PaymentNoteEmpenhoRepository paymentNoteEmpenhoRepository,
             TaxCalculator taxCalculator,
             EmpresaService empresaService) {
         this.paymentNoteRepository = paymentNoteRepository;
+        this.paymentNoteEmpenhoRepository = paymentNoteEmpenhoRepository;
         this.taxCalculator = taxCalculator;
         this.empresaService = empresaService;
     }
@@ -123,7 +127,15 @@ public class PaymentNoteService {
                         "PaymentNote nº " + numeroNp + " não encontrada para o ano " + ano));
     }
 
+    @Transactional
     public void deleteNp(@NonNull Long id) {
+        paymentNoteRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("PaymentNote não encontrada: ID " + id));
+
+        if (paymentNoteEmpenhoRepository.existsByPaymentNoteId(id)) {
+            throw new BusinessRuleException("PaymentNote não pode ser excluída: possui vinculação(ões) com Empenho(s).");
+        }
+
         paymentNoteRepository.deleteById(id);
     }
 

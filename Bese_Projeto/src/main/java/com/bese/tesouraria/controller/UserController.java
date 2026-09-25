@@ -16,6 +16,8 @@ import com.bese.tesouraria.security.CookieUtil;
 import com.bese.tesouraria.security.TokenUtil;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -43,20 +45,11 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<PageDto<UserResponseDto>> findAll(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        Page<User> users = userService.findAll(page, size);
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<User> users = userService.findAll(pageable.getPageNumber(), pageable.getPageSize());
         Page<UserResponseDto> userDtos = users.map(mapper::toResponseDto);
 
-        PageDto<UserResponseDto> pageDto = new PageDto<>(
-                userDtos.getContent(),
-                users.getNumber(),
-                users.getSize(),
-                users.getTotalElements(),
-                users.getTotalPages(),
-                users.isLast());
-
-        return ResponseEntity.ok(pageDto);
+        return ResponseEntity.ok(PageDto.of(userDtos));
     }
 
     @GetMapping("/{cpf}")

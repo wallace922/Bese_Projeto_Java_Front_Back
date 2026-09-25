@@ -25,4 +25,8 @@ public interface PaymentNoteRepository extends JpaRepository<PaymentNote, Long>{
 
     Page<PaymentNote> findAllByOrderByIdDesc(Pageable pageable);
 
+    boolean existsByEmpresaId(Long empresaId);
+
+    @Query("SELECT COUNT(p) > 0 FROM PaymentNote p JOIN p.items i WHERE i.empresaBeneficiaria.id = :empresaId")
+    boolean existsByEmpresaBeneficiariaId(@Param("empresaId") Long empresaId);
 }

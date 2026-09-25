@@ -4,6 +4,7 @@ import com.bese.tesouraria.entity.FinancialPlanning;
 import com.bese.tesouraria.exception.BusinessRuleException;
 import com.bese.tesouraria.exception.EntityNotFoundException;
 import com.bese.tesouraria.repository.FinancialPlanningRepository;
+import com.bese.tesouraria.repository.PaymentNoteEmpenhoRepository;
 import jakarta.persistence.EntityExistsException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,9 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class FinancialPlanningService {
 
     private final FinancialPlanningRepository planningRepository;
+    private final PaymentNoteEmpenhoRepository paymentNoteEmpenhoRepository;
 
-    public FinancialPlanningService(FinancialPlanningRepository planningRepository){
+    public FinancialPlanningService(FinancialPlanningRepository planningRepository,
+            PaymentNoteEmpenhoRepository paymentNoteEmpenhoRepository) {
         this.planningRepository = planningRepository;
+        this.paymentNoteEmpenhoRepository = paymentNoteEmpenhoRepository;
     }
 
     public Page<FinancialPlanning> findAll(int page, int size){
@@ -58,7 +62,16 @@ public class FinancialPlanningService {
                 "Planejamento financeiro não encontrado: numero=" + numero + ", ano=" + ano) );
     }
 
+    @Transactional
     public void delete(Long id){
+        planningRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Planejamento financeiro não encontrado: ID " + id));
+
+        if (paymentNoteEmpenhoRepository.existsByFinancialPlanningId(id)) {
+            throw new BusinessRuleException(
+                    "Planejamento financeiro não pode ser excluído: possui vinculação(ões) com Nota(s) de Pagamento.");
+        }
+
         planningRepository.deleteById(id);
     }
 

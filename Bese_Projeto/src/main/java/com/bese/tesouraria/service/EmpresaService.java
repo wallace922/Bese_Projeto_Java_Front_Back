@@ -4,19 +4,23 @@ import com.bese.tesouraria.entity.Empresa;
 import com.bese.tesouraria.exception.BusinessRuleException;
 import com.bese.tesouraria.exception.EntityNotFoundException;
 import com.bese.tesouraria.repository.EmpresaRepository;
+import com.bese.tesouraria.repository.PaymentNoteRepository;
 import jakarta.persistence.EntityExistsException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class EmpresaService {
 
     private final EmpresaRepository empresaRepository;
+    private final PaymentNoteRepository paymentNoteRepository;
 
-    public EmpresaService(EmpresaRepository empresaRepository) {
+    public EmpresaService(EmpresaRepository empresaRepository, PaymentNoteRepository paymentNoteRepository) {
         this.empresaRepository = empresaRepository;
+        this.paymentNoteRepository = paymentNoteRepository;
     }
 
     public Page<Empresa> findAll(int page, int size){
@@ -62,7 +66,18 @@ public class EmpresaService {
                 .orElseThrow(() -> new EntityNotFoundException("Empresa não encontrada: ID " + id));
     }
 
+    @Transactional
     public void delete(Long id){
+        empresaRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Empresa não encontrada: ID " + id));
+
+        if (paymentNoteRepository.existsByEmpresaId(id)) {
+            throw new BusinessRuleException("Empresa não pode ser excluída: possui Nota(s) de Pagamento associada(s).");
+        }
+        if (paymentNoteRepository.existsByEmpresaBeneficiariaId(id)) {
+            throw new BusinessRuleException("Empresa não pode ser excluída: é beneficiária de Nota(s) de Pagamento.");
+        }
+
         empresaRepository.deleteById(id);
     }
 }

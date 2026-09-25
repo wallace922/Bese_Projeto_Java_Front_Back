@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,20 +35,13 @@ public class PaymentNoteEmpenhoController {
     @GetMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PageDto<PaymentNoteEmpenhoBasicDto>> findAll(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<PaymentNoteEmpenho> entitiesPage = service.findAllFull(page, size);
+        Page<PaymentNoteEmpenho> entitiesPage = service.findAllFull(pageable.getPageNumber(), pageable.getPageSize());
 
-        PageDto<PaymentNoteEmpenhoBasicDto> pageDto = new PageDto<>(
-                entitiesPage.getContent().stream().map(mapper::toDto).toList(),
-                entitiesPage.getNumber(),
-                entitiesPage.getSize(),
-                entitiesPage.getTotalElements(),
-                entitiesPage.getTotalPages(),
-                entitiesPage.isLast());
+        Page<PaymentNoteEmpenhoBasicDto> dtoPage = entitiesPage.map(mapper::toDto);
 
-        return ResponseEntity.ok(pageDto);
+        return ResponseEntity.ok(PageDto.of(dtoPage));
     }
 
     @PostMapping
@@ -78,38 +73,22 @@ public class PaymentNoteEmpenhoController {
     public ResponseEntity<PageDto<PaymentNoteVinculacaoDto>> findByMesAndAno(
             @RequestParam @Min(value = 1, message = "Mês deve ser entre 1 e 12") @Max(value = 12, message = "Mês deve ser entre 1 e 12") Integer mes,
             @RequestParam @Min(value = 1900, message = "Ano deve ter 4 dígitos e ser >= 1900") @Max(value = 2050, message = "Ano não pode ser maior que 2050") Integer ano,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<PaymentNoteVinculacaoDto> resultado = service.findByMesAndAno(mes, ano, page, size);
+        Page<PaymentNoteVinculacaoDto> resultado = service.findByMesAndAno(mes, ano,
+                pageable.getPageNumber(), pageable.getPageSize());
 
-        PageDto<PaymentNoteVinculacaoDto> pageDto = new PageDto<>(
-                resultado.getContent(),
-                resultado.getNumber(),
-                resultado.getSize(),
-                resultado.getTotalElements(),
-                resultado.getTotalPages(),
-                resultado.isLast());
-
-        return ResponseEntity.ok(pageDto);
+        return ResponseEntity.ok(PageDto.of(resultado));
     }
 
     @GetMapping("/sem-planejamento")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PageDto<PaymentNoteEmpenhoBasicDto>> findSemFinancialPlanning(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<PaymentNoteEmpenhoBasicDto> resultado = service.findSemFinancialPlanning(page, size);
+        Page<PaymentNoteEmpenhoBasicDto> resultado = service.findSemFinancialPlanning(
+                pageable.getPageNumber(), pageable.getPageSize());
 
-        PageDto<PaymentNoteEmpenhoBasicDto> pageDto = new PageDto<>(
-                resultado.getContent(),
-                resultado.getNumber(),
-                resultado.getSize(),
-                resultado.getTotalElements(),
-                resultado.getTotalPages(),
-                resultado.isLast());
-
-        return ResponseEntity.ok(pageDto);
+        return ResponseEntity.ok(PageDto.of(resultado));
     }
 }

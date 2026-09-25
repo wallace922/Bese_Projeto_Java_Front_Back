@@ -8,6 +8,8 @@ import com.bese.tesouraria.service.FinancialPlanningService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,20 +31,11 @@ public class FinancialPlanningController {
     @GetMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PageDto<FinancialPlanningBasicDto>> findAll(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        Page<FinancialPlanning> plannings = financialPlanningService.findAll(page, size);
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<FinancialPlanning> plannings = financialPlanningService.findAll(pageable.getPageNumber(), pageable.getPageSize());
         Page<FinancialPlanningBasicDto> planningDtos = plannings.map(mapper::toDto);
 
-        PageDto<FinancialPlanningBasicDto> pageDto = new PageDto<>(
-                planningDtos.getContent(),
-                plannings.getNumber(),
-                plannings.getSize(),
-                plannings.getTotalElements(),
-                plannings.getTotalPages(),
-                plannings.isLast());
-
-        return ResponseEntity.ok(pageDto);
+        return ResponseEntity.ok(PageDto.of(planningDtos));
     }
 
     @PostMapping

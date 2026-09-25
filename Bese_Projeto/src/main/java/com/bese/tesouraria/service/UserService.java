@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserService {
@@ -65,6 +66,7 @@ public class UserService {
         return userRepository.save(existingUser);
     }
 
+    @Transactional
     public void delete(Long id) {
         if (!userRepository.existsById(id)) {
             throw new EntityNotFoundException("Usuário não encontrado.");

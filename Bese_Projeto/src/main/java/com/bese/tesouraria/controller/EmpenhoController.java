@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,20 +33,11 @@ public class EmpenhoController {
 	@GetMapping
 	@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 	public ResponseEntity<PageDto<EmpenhoDto>> findByAll(
-			@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "20") int size) {
-		Page<Empenho> empenhos = empenhoService.findAll(page, size);
+			@PageableDefault(size = 20) Pageable pageable) {
+		Page<Empenho> empenhos = empenhoService.findAll(pageable.getPageNumber(), pageable.getPageSize());
 		Page<EmpenhoDto> empenhoDtos = empenhos.map(mapper::toDto);
 
-		PageDto<EmpenhoDto> pageDto = new PageDto<>(
-				empenhoDtos.getContent(),
-				empenhos.getNumber(),
-				empenhos.getSize(),
-				empenhos.getTotalElements(),
-				empenhos.getTotalPages(),
-				empenhos.isLast());
-
-		return ResponseEntity.ok(pageDto);
+		return ResponseEntity.ok(PageDto.of(empenhoDtos));
 	}
 
 	@PostMapping

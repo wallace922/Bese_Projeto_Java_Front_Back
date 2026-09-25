@@ -122,6 +122,7 @@ public class PaymentNoteEmpenhoService {
         }
     }
 
+    @Transactional
     public void delete(Long id) {
         if (!paymentNoteEmpenhoRepository.existsById(id)) {
             throw new EntityNotFoundException("Associação entre Nota de Pagamento e Empenho não encontrada.");

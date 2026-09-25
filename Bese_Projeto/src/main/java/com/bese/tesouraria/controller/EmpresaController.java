@@ -8,6 +8,8 @@ import com.bese.tesouraria.service.EmpresaService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,20 +30,11 @@ public class EmpresaController {
     @GetMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PageDto<EmpresaDto>> findAll(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        Page<Empresa> empresas = empresaService.findAll(page, size);
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<Empresa> empresas = empresaService.findAll(pageable.getPageNumber(), pageable.getPageSize());
         Page<EmpresaDto> empresaDtos = empresas.map(mapper::toDto);
 
-        PageDto<EmpresaDto> pageDto = new PageDto<>(
-                empresaDtos.getContent(),
-                empresas.getNumber(),
-                empresas.getSize(),
-                empresas.getTotalElements(),
-                empresas.getTotalPages(),
-                empresas.isLast());
-
-        return ResponseEntity.ok(pageDto);
+        return ResponseEntity.ok(PageDto.of(empresaDtos));
     }
 
     @PostMapping

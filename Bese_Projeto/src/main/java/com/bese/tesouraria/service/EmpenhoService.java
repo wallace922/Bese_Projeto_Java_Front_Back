@@ -1,8 +1,10 @@
 package com.bese.tesouraria.service;
 
 import com.bese.tesouraria.entity.Empenho;
+import com.bese.tesouraria.exception.BusinessRuleException;
 import com.bese.tesouraria.exception.EntityNotFoundException;
 import com.bese.tesouraria.repository.EmpenhoRepository;
+import com.bese.tesouraria.repository.PaymentNoteEmpenhoRepository;
 import jakarta.persistence.EntityExistsException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -14,9 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmpenhoService {
 	
 	private final EmpenhoRepository empRepository;
+	private final PaymentNoteEmpenhoRepository paymentNoteEmpenhoRepository;
 
-	public EmpenhoService(EmpenhoRepository empRepository) {
+	public EmpenhoService(EmpenhoRepository empRepository,
+			PaymentNoteEmpenhoRepository paymentNoteEmpenhoRepository) {
 		this.empRepository = empRepository;
+		this.paymentNoteEmpenhoRepository = paymentNoteEmpenhoRepository;
 	}
 	
 	public Page<Empenho> findAll(int page, int size){
@@ -53,8 +58,16 @@ public class EmpenhoService {
 		return empenho.getId();
 	}
 	
+	@Transactional
 	public void delete(Long id) {
-        empRepository.deleteById(id);
+		empRepository.findById(id)
+				.orElseThrow(() -> new EntityNotFoundException("Empenho não encontrado: ID " + id));
+
+		if (paymentNoteEmpenhoRepository.existsByEmpenhoId(id)) {
+			throw new BusinessRuleException("Empenho não pode ser excluído: possui vinculação(ões) com Nota(s) de Pagamento.");
+		}
+
+		empRepository.deleteById(id);
 	}
 
 }

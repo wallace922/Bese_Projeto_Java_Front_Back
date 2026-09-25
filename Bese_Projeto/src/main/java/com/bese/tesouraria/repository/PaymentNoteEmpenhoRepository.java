@@ -50,4 +50,10 @@ public interface PaymentNoteEmpenhoRepository extends JpaRepository<PaymentNoteE
             Pageable pageable);
 
     Page<PaymentNoteEmpenho> findByFinancialPlanningIsNull(Pageable pageable);
+
+    boolean existsByPaymentNoteId(Long paymentNoteId);
+
+    boolean existsByEmpenhoId(Long empenhoId);
+
+    boolean existsByFinancialPlanningId(Long financialPlanningId);
 }
