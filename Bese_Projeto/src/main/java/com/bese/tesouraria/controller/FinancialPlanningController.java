@@ -15,9 +15,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/API/FinancialPlanning")
 public class FinancialPlanningController {
+
+    private static final Logger log = LoggerFactory.getLogger(FinancialPlanningController.class);
 
     private final FinancialPlanningService financialPlanningService;
     private final FinancialPlanningMapper mapper;
@@ -32,7 +38,8 @@ public class FinancialPlanningController {
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PageDto<FinancialPlanningBasicDto>> findAll(
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<FinancialPlanning> plannings = financialPlanningService.findAll(pageable.getPageNumber(), pageable.getPageSize());
+        Page<FinancialPlanning> plannings = financialPlanningService.findAll(pageable.getPageNumber(),
+                pageable.getPageSize());
         Page<FinancialPlanningBasicDto> planningDtos = plannings.map(mapper::toDto);
 
         return ResponseEntity.ok(PageDto.of(planningDtos));
@@ -41,17 +48,23 @@ public class FinancialPlanningController {
     @PostMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<FinancialPlanningBasicDto> save(
-            @Valid @RequestBody FinancialPlanningBasicDto financialPlanningBasicDto) {
+            @Valid @RequestBody FinancialPlanningBasicDto financialPlanningBasicDto,
+            HttpServletRequest request) {
         FinancialPlanning financialPlanning = financialPlanningService.save(mapper.toEntity(financialPlanningBasicDto));
+        log.info("AUDIT_FINANCIAL_PLANNING_CREATED | planningId={} | numero={} | ip={}", financialPlanning.getId(),
+                financialPlanning.getNumero(), request.getRemoteAddr());
         return ResponseEntity.status(201).body(mapper.toDto(financialPlanning));
     }
 
     @PutMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<FinancialPlanningBasicDto> update(
-            @Valid @RequestBody FinancialPlanningBasicDto financialPlanningBasicDto) {
+            @Valid @RequestBody FinancialPlanningBasicDto financialPlanningBasicDto,
+            HttpServletRequest request) {
         FinancialPlanning financialPlanning = financialPlanningService
                 .update(mapper.toEntity(financialPlanningBasicDto));
+        log.info("AUDIT_FINANCIAL_PLANNING_UPDATED | planningId={} | numero={} | ip={}", financialPlanning.getId(),
+                financialPlanning.getNumero(), request.getRemoteAddr());
         return ResponseEntity.status(202).body(mapper.toDto(financialPlanning));
     }
 
@@ -67,7 +80,8 @@ public class FinancialPlanningController {
     @DeleteMapping("/{id}")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public void deleteById(@NotNull @PathVariable Long id) {
+    public void deleteById(@NotNull @PathVariable Long id, HttpServletRequest request) {
         financialPlanningService.delete(id);
+        log.warn("AUDIT_FINANCIAL_PLANNING_DELETED | planningId={} | ip={}", id, request.getRemoteAddr());
     }
 }

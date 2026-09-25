@@ -17,9 +17,15 @@ import org.springframework.web.bind.annotation.*;
 import com.bese.tesouraria.dto.PaymentNoteBasicDto;
 import com.bese.tesouraria.service.PaymentNoteService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/API/Np")
 public class PaymentNoteController {
+
+	private static final Logger log = LoggerFactory.getLogger(PaymentNoteController.class);
 
 	private final PaymentNoteService service;
 	private final PaymentNoteMapper mapper;
@@ -41,17 +47,23 @@ public class PaymentNoteController {
 
 	@PostMapping
 	@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-	public ResponseEntity<PaymentNoteBasicDto> save(@Valid @RequestBody PaymentNoteBasicDto paymentNoteBasicDto) {
+	public ResponseEntity<PaymentNoteBasicDto> save(@Valid @RequestBody PaymentNoteBasicDto paymentNoteBasicDto,
+			HttpServletRequest request) {
 		PaymentNote paymentNoteToSave = mapper.toEntity(paymentNoteBasicDto);
 		PaymentNote savedPaymentNote = service.saveNp(paymentNoteToSave);
+		log.info("AUDIT_NP_CREATED | npId={} | npNumber={} | value={} | ip={}", savedPaymentNote.getId(),
+				savedPaymentNote.getNumeroNp(), savedPaymentNote.getValue(), request.getRemoteAddr());
 		return ResponseEntity.status(201).body(mapper.toDto(savedPaymentNote));
 	}
 
 	@PutMapping
 	@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-	public ResponseEntity<PaymentNoteBasicDto> update(@Valid @RequestBody PaymentNoteBasicDto paymentNoteBasicDto) {
+	public ResponseEntity<PaymentNoteBasicDto> update(@Valid @RequestBody PaymentNoteBasicDto paymentNoteBasicDto,
+			HttpServletRequest request) {
 		PaymentNote paymentNoteToUpdate = mapper.toEntity(paymentNoteBasicDto);
 		PaymentNote updatedPaymentNote = service.updateNp(paymentNoteToUpdate);
+		log.info("AUDIT_NP_UPDATED | npId={} | npNumber={} | ip={}", updatedPaymentNote.getId(),
+				updatedPaymentNote.getNumeroNp(), request.getRemoteAddr());
 		return ResponseEntity.status(202).body(mapper.toDto(updatedPaymentNote));
 	}
 
@@ -65,8 +77,9 @@ public class PaymentNoteController {
 	@DeleteMapping("/{id}")
 	@ResponseStatus(code = HttpStatus.NO_CONTENT)
 	@PreAuthorize("hasAnyRole('ADMIN')")
-	public void deleteById(@PathVariable Long id) {
+	public void deleteById(@PathVariable Long id, HttpServletRequest request) {
 		service.deleteNp(id);
+		log.warn("AUDIT_NP_DELETED | npId={} | ip={}", id, request.getRemoteAddr());
 	}
 
 }

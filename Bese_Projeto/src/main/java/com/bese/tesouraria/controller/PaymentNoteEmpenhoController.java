@@ -18,10 +18,16 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.servlet.http.HttpServletRequest;
+
 @Validated
 @RestController
 @RequestMapping("/API/PaymentEmpenho")
 public class PaymentNoteEmpenhoController {
+
+    private static final Logger log = LoggerFactory.getLogger(PaymentNoteEmpenhoController.class);
 
     private final PaymentNoteEmpenhoService service;
     private final PaymentNoteEmpenhoMapper mapper;
@@ -47,16 +53,20 @@ public class PaymentNoteEmpenhoController {
     @PostMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PaymentNoteEmpenhoBasicDto> save(
-            @Valid @RequestBody PaymentNoteEmpenhoBasicDto dto) {
+            @Valid @RequestBody PaymentNoteEmpenhoBasicDto dto,
+            HttpServletRequest request) {
         PaymentNoteEmpenho paymentNoteEmpenho = service.save(mapper.toEntity(dto));
+        log.info("AUDIT_VINCULACAO_CREATED | vinculacaoId={} | ip={}", paymentNoteEmpenho.getId(), request.getRemoteAddr());
         return ResponseEntity.status(201).body(mapper.toDto(paymentNoteEmpenho));
     }
 
     @PutMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PaymentNoteEmpenhoBasicDto> update(
-            @Valid @RequestBody PaymentNoteEmpenhoBasicDto dto) {
+            @Valid @RequestBody PaymentNoteEmpenhoBasicDto dto,
+            HttpServletRequest request) {
         PaymentNoteEmpenho paymentNoteEmpenho = service.update(mapper.toEntity(dto));
+        log.info("AUDIT_VINCULACAO_UPDATED | vinculacaoId={} | ip={}", paymentNoteEmpenho.getId(), request.getRemoteAddr());
 
         return ResponseEntity.status(202).body(mapper.toDto(paymentNoteEmpenho));
     }
@@ -64,8 +74,9 @@ public class PaymentNoteEmpenhoController {
     @DeleteMapping("/{id}")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public void deleteById(@PathVariable Long id) {
+    public void deleteById(@PathVariable Long id, HttpServletRequest request) {
         service.delete(id);
+        log.warn("AUDIT_VINCULACAO_DELETED | vinculacaoId={} | ip={}", id, request.getRemoteAddr());
     }
 
     @GetMapping("/por-mes-ano")

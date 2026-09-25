@@ -26,9 +26,15 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpHeaders;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/API/User")
 public class UserController {
+
+    private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
     private final TokenUtil tokenUtil;
     private final CookieUtil cookieUtil;
@@ -68,9 +74,10 @@ public class UserController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity<UserResponseDto> save(@Valid @RequestBody UserCreateDto dto) {
+    public ResponseEntity<UserResponseDto> save(@Valid @RequestBody UserCreateDto dto, HttpServletRequest request) {
         User entity = mapper.toEntity(dto);
         User savedUser = userService.save(entity);
+        log.info("AUDIT_USER_CREATED | newUserId={} | role={} | ip={}", savedUser.getId(), savedUser.getRole(), request.getRemoteAddr());
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toResponseDto(savedUser));
     }
 
@@ -78,40 +85,50 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<UserResponseDto> update(
             @NotNull @PathVariable Long id,
-            @Valid @RequestBody UserUpdateDto dto) {
+            @Valid @RequestBody UserUpdateDto dto,
+            HttpServletRequest request) {
         User userToUpdate = new User();
         userToUpdate.setName(dto.getName());
         userToUpdate.setRole(dto.getRole());
         userToUpdate.setPassword(dto.getPassword());
 
         User updatedUser = userService.update(id, userToUpdate);
+        log.info("AUDIT_USER_UPDATED | targetUserId={} | newRole={} | ip={}", id, dto.getRole(), request.getRemoteAddr());
         return ResponseEntity.ok(mapper.toResponseDto(updatedUser));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN')")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
-    public void deleteById(@NotNull @PathVariable Long id) {
+    public void deleteById(@NotNull @PathVariable Long id, HttpServletRequest request) {
         userService.delete(id);
+        log.warn("AUDIT_USER_DELETED | deletedUserId={} | ip={}", id, request.getRemoteAddr());
     }
 
     @PostMapping("/login")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<UserResponseDto> login(@Valid @RequestBody LoginRequestDto dto) {
+    public ResponseEntity<UserResponseDto> login(@Valid @RequestBody LoginRequestDto dto, HttpServletRequest request) {
+        try {
+            User user = userService.autenticar(dto.getCpf(), dto.getPassword());
+            String jwtToken = tokenUtil.generateRawToken(user);
+            ResponseCookie cookie = cookieUtil.createJwtCookie(jwtToken);
 
-        User user = userService.autenticar(dto.getCpf(), dto.getPassword());
-        String jwtToken = tokenUtil.generateRawToken(user);
-        ResponseCookie cookie = cookieUtil.createJwtCookie(jwtToken);
+            log.info("AUDIT_LOGIN_SUCCESS | userId={} | role={} | ip={}", user.getId(), user.getRole(), request.getRemoteAddr());
 
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(mapper.toResponseDto(user));
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                    .body(mapper.toResponseDto(user));
+        } catch (RuntimeException e) {
+            log.warn("AUDIT_LOGIN_FAILED | cpf={} | ip={} | reason={}", dto.getCpf(), request.getRemoteAddr(), e.getMessage());
+            throw e;
+        }
     }
 
     @PostMapping("/logout")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<Void> logout() {
+    public ResponseEntity<Void> logout(HttpServletRequest request, Authentication authentication) {
         ResponseCookie cleanCookie = cookieUtil.createCleanJwtCookie();
+        String userId = authentication != null ? authentication.getName() : "ANONYMOUS";
+        log.info("AUDIT_LOGOUT | userId={} | ip={}", userId, request.getRemoteAddr());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cleanCookie.toString())
                 .build();

@@ -18,9 +18,15 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import com.bese.tesouraria.dto.EmpenhoDto;
 import com.bese.tesouraria.service.EmpenhoService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/API/Empenho")
 public class EmpenhoController {
+
+	private static final Logger log = LoggerFactory.getLogger(EmpenhoController.class);
 
 	private final EmpenhoService empenhoService;
 	private final EmpenhoMapper mapper;
@@ -42,15 +48,17 @@ public class EmpenhoController {
 
 	@PostMapping
 	@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-	public ResponseEntity<EmpenhoDto> save(@Valid @RequestBody EmpenhoDto empDto) {
+	public ResponseEntity<EmpenhoDto> save(@Valid @RequestBody EmpenhoDto empDto, HttpServletRequest request) {
 		Empenho empenho = empenhoService.save(mapper.toEntity(empDto));
+		log.info("AUDIT_EMPENHO_CREATED | empenhoId={} | numero={} | ip={}", empenho.getId(), empenho.getNumero(), request.getRemoteAddr());
 		return ResponseEntity.status(201).body(mapper.toDto(empenho));
 	}
 
 	@PutMapping
 	@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-	public ResponseEntity<EmpenhoDto> update(@Valid @RequestBody EmpenhoDto empenhoDto) {
+	public ResponseEntity<EmpenhoDto> update(@Valid @RequestBody EmpenhoDto empenhoDto, HttpServletRequest request) {
 		Empenho empenho = empenhoService.update(mapper.toEntity(empenhoDto));
+		log.info("AUDIT_EMPENHO_UPDATED | empenhoId={} | numero={} | ip={}", empenho.getId(), empenho.getNumero(), request.getRemoteAddr());
 		return ResponseEntity.status(202).body(mapper.toDto(empenho));
 	}
 
@@ -69,8 +77,9 @@ public class EmpenhoController {
 	@DeleteMapping("/{id}")
 	@ResponseStatus(code = HttpStatus.NO_CONTENT)
 	@PreAuthorize("hasAnyRole('ADMIN')")
-	public void deleteById(@NotNull @PathVariable Long id) {
+	public void deleteById(@NotNull @PathVariable Long id, HttpServletRequest request) {
 		empenhoService.delete(id);
+		log.warn("AUDIT_EMPENHO_DELETED | empenhoId={} | ip={}", id, request.getRemoteAddr());
 	}
 
 }

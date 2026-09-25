@@ -15,9 +15,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/API/Empresa")
 public class EmpresaController {
+
+    private static final Logger log = LoggerFactory.getLogger(EmpresaController.class);
 
     private final EmpresaService empresaService;
     private final EmpresaMapper mapper;
@@ -39,15 +45,17 @@ public class EmpresaController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<EmpresaDto> save(@Valid @RequestBody EmpresaDto empresaDto) {
+    public ResponseEntity<EmpresaDto> save(@Valid @RequestBody EmpresaDto empresaDto, HttpServletRequest request) {
         Empresa empresa = empresaService.save(mapper.toEntity(empresaDto));
+        log.info("AUDIT_EMPRESA_CREATED | empresaId={} | cnpj={} | ip={}", empresa.getId(), empresa.getCnpj(), request.getRemoteAddr());
         return ResponseEntity.status(201).body(mapper.toDto(empresa));
     }
 
     @PutMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<EmpresaDto> update(@Valid @RequestBody EmpresaDto empresaDto) {
+    public ResponseEntity<EmpresaDto> update(@Valid @RequestBody EmpresaDto empresaDto, HttpServletRequest request) {
         Empresa empresa = empresaService.update(mapper.toEntity(empresaDto));
+        log.info("AUDIT_EMPRESA_UPDATED | empresaId={} | cnpj={} | ip={}", empresa.getId(), empresa.getCnpj(), request.getRemoteAddr());
         return ResponseEntity.status(202).body(mapper.toDto(empresa));
     }
 
@@ -61,8 +69,9 @@ public class EmpresaController {
     @DeleteMapping("/{id}")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public void deleteById(@NotNull @PathVariable Long id) {
+    public void deleteById(@NotNull @PathVariable Long id, HttpServletRequest request) {
         empresaService.delete(id);
+        log.warn("AUDIT_EMPRESA_DELETED | empresaId={} | ip={}", id, request.getRemoteAddr());
     }
 
 }

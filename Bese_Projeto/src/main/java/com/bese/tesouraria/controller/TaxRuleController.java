@@ -16,9 +16,15 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/API/TaxRule")
 public class TaxRuleController {
+
+    private static final Logger log = LoggerFactory.getLogger(TaxRuleController.class);
 
     private final TaxRuleService taxRuleService;
     private final TaxRuleMapper taxRuleMapper;
@@ -82,9 +88,10 @@ public class TaxRuleController {
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<TaxRuleDto> save(@Valid @RequestBody TaxRuleDto dto) {
+    public ResponseEntity<TaxRuleDto> save(@Valid @RequestBody TaxRuleDto dto, HttpServletRequest request) {
         TaxRule ruleToSave = taxRuleMapper.toEntity(dto);
         TaxRule savedRule = taxRuleService.save(ruleToSave);
+        log.info("AUDIT_TAX_RULE_CREATED | ruleId={} | codEfd={} | codigoReceita={} | ip={}", savedRule.getId(), savedRule.getCodEfd(), savedRule.getCodigoReceita(), request.getRemoteAddr());
         return ResponseEntity.status(HttpStatus.CREATED).body(taxRuleMapper.toDto(savedRule));
     }
 
@@ -101,8 +108,9 @@ public class TaxRuleController {
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<TaxRuleDto> update(@PathVariable Long id, @Valid @RequestBody TaxRuleUpdateDto dto) {
+    public ResponseEntity<TaxRuleDto> update(@PathVariable Long id, @Valid @RequestBody TaxRuleUpdateDto dto, HttpServletRequest request) {
         TaxRule updatedRule = taxRuleService.update(id, dto);
+        log.info("AUDIT_TAX_RULE_UPDATED | ruleId={} | codigoReceita={} | ip={}", id, dto.getCodigoReceita(), request.getRemoteAddr());
         return ResponseEntity.ok(taxRuleMapper.toDto(updatedRule));
     }
 }
