@@ -8,7 +8,7 @@ Este repositório unifica o **Backend (Java / Spring Boot)** e o **Frontend (Rea
 
 ```text
 Bese_Projeto_Java_Front_Back/
-├── Bese_Projeto/           # API Backend (Spring Boot, Java 17+, JPA/Hibernate, Flyway, MySQL)
+├── Bese_Projeto/           # API Backend (Spring Boot, Java 21, JPA/Hibernate, Flyway, MySQL)
 ├── Front_Bese_Projeto/     # Aplicação Web Frontend (React, Vite, TypeScript, Tailwind CSS)
 ├── .gitignore              # Configuração global do Git (proteção contra vazamentos de senhas e arquivos temporários)
 └── README.md               # Documentação principal do projeto
@@ -19,12 +19,12 @@ Bese_Projeto_Java_Front_Back/
 ## 🛠️ Tecnologias Utilizadas
 
 ### Backend (`Bese_Projeto/`)
-- **Linguagem:** Java 17+
+- **Linguagem:** Java 21 (obrigatório — `pom.xml` define `java.version=21`)
 - **Framework:** Spring Boot 3
 - **Persistência & BD:** Spring Data JPA, Hibernate, MySQL
-- **Migrações:** Flyway Migration (`src/main/resources/db/migration`)
+- **Migrações:** Flyway Migration (`src/main/resources/db/migration`, `V0__baseline.sql` → `V8`)
 - **Segurança & Auth:** Spring Security, JWT (JSON Web Token)
-- **Gerenciador de Build:** Maven (usando `mvnw` wrapper)
+- **Gerenciador de Build:** Maven (usando `mvnw` wrapper, não precisa instalar o Maven)
 
 ### Frontend (`Front_Bese_Projeto/`)
 - **Framework & Build:** React + Vite
@@ -38,57 +38,79 @@ Bese_Projeto_Java_Front_Back/
 ## ⚙️ Pré-requisitos
 
 Antes de iniciar, certifique-se de ter instalado em sua máquina:
-- **Java JDK 17** ou superior
+- **Java JDK 21** (obrigatório — versões diferentes quebram o build/Lombok)
 - **Node.js** (v18 ou superior) e **npm**
-- **MySQL Server** rodando localmente ou via container Docker
+- **MySQL Server 8** rodando localmente ou via container Docker
 - **Git**
 
 ---
 
-## 🚀 Como Executar o Projeto
+## 🚀 Como Executar o Projeto (máquina nova, do zero)
 
-### 1. Configurando o Banco de Dados MySQL
+### 1. Banco de Dados MySQL — criar database + usuário com permissão
 
-Crie a base de dados no seu MySQL:
+> ⚠️ Não crie tabelas na mão: o Flyway cria tudo sozinho no primeiro boot (`V0__baseline.sql` → `V8`). O banco precisa existir **vazio** e o usuário precisa de `GRANT` — sem isso o boot falha com `Access denied ... 1044`.
+
+Conecte como `root` e rode:
 ```sql
-CREATE DATABASE tesouraria CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS tesouraria CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'usuario_app'@'localhost' IDENTIFIED BY 'troque_esta_senha';
+GRANT ALL PRIVILEGES ON tesouraria.* TO 'usuario_app'@'localhost';
+FLUSH PRIVILEGES;
 ```
+
+> 💡 `localhost` ≠ `127.0.0.1` no MySQL. Se a `DB_URL` usar `localhost`, o grant precisa ser para `'usuario'@'localhost'`.
 
 ---
 
-### 2. Rodando o Backend (Java Spring Boot)
+### 2. Backend (Java Spring Boot)
 
-1. Acesse a pasta do backend:
+1. Acesse a pasta do backend (**importante:** todos os comandos abaixo partem daqui, pois o `.env` é lido a partir deste diretório):
    ```bash
    cd Bese_Projeto
    ```
 
-2. **Configuração de Variáveis de Ambiente (Segurança):**
-   O projeto utiliza variáveis de ambiente para evitar expor senhas no controle de versão. Você pode definí-las no terminal ou na sua IDE:
-
-   | Variável | Valor Padrão Local | Descrição |
-   | :--- | :--- | :--- |
-   | `DB_URL` | `jdbc:mysql://localhost:3306/tesouraria` | URL do Banco de Dados |
-   | `DB_USERNAME` | `usuario_app` | Usuário do MySQL |
-   | `DB_PASSWORD` | `senha_db_local` | Senha do MySQL |
-   | `JWT_SECRET` | `sua_chave_secreta_jwt_desenvolvimento_local_12345` | Segredo para assinar os tokens JWT |
-
-   *Exemplo de execução exportando as variáveis:*
-   ```bash
-   export DB_USERNAME=root
-   export DB_PASSWORD=sua_senha_mysql
-   export JWT_SECRET=minha_chave_jwt_super_segura_123
+2. **Crie o arquivo `.env` dentro de `Bese_Projeto/`** (mesma pasta do `pom.xml`). Os nomes das chaves precisam ser **exatamente** estes (maiúsculas com underline — `jwt.secret` minúsculo **não** funciona):
+   ```properties
+   DB_URL=jdbc:mysql://localhost:3306/tesouraria
+   DB_USERNAME=usuario_app
+   DB_PASSWORD=troque_esta_senha
+   JWT_SECRET=troque_por_uma_frase_longa_com_mais_de_32_letras_e_numeros_123
+   CORS_ALLOWED_ORIGINS=http://localhost:5173
    ```
 
-3. Execute o servidor Spring Boot com o Maven Wrapper:
+   | Variável | Descrição | Regras |
+   | :--- | :--- | :--- |
+   | `DB_URL` | URL do Banco de Dados | Aponta para a database criada no passo 1 |
+   | `DB_USERNAME` / `DB_PASSWORD` | Credenciais do MySQL | Iguais às do `CREATE USER` acima |
+   | `JWT_SECRET` | Segredo que assina os tokens JWT | **Mínimo 32 caracteres**, só letras/números (evite `\| & ? * : ;`, que quebram o arquivo) |
+   | `CORS_ALLOWED_ORIGINS` | Origem do frontend liberada | URL exata onde o `npm run dev` roda (sem `/` no final) |
+
+   Alternativa sem arquivo: exportar no terminal antes de subir (`export DB_USERNAME=...` etc.).
+
+3. Suba o servidor (**pare com `Ctrl+C` e suba de novo a cada mudança no `.env`** — ele só é lido no boot):
    ```bash
    ./mvnw spring-boot:run
    ```
+   * No Windows: `mvnw.cmd spring-boot:run`
    * O Backend estará acessível em: `http://localhost:8080`
+   * No primeiro boot o Flyway aplica `V0 → V8` e o Hibernate valida o schema (`ddl-auto=validate`, ele não cria nada).
+
+### 3. Criar o primeiro usuário ADMIN (banco novo não tem login)
+
+> ⚠️ O banco nasce **sem nenhum usuário** e só `ADMIN` pode criar usuários — ou seja, sem este passo ninguém consegue logar. Use este seed **somente em ambiente local/dev** e troque a senha em seguida.
+
+Com o backend já subido uma vez (tabelas criadas), rode no MySQL:
+```sql
+INSERT INTO `user` (name, cpf, password, role)
+VALUES ('Administrador', '11144477735', '$2b$10$A3fx7fqPXBVACLti4CXEAOvAzib8I7SXIlh0DkOVz6rJLIDm3EXLy', 'ADMIN');
+```
+* Login: CPF `11144477735` / senha `Trocar@123` (hash BCrypt, custo 10 — igual ao do app).
+* Após logar, crie seu usuário real em `/admin` e **delete ou troque a senha deste seed**.
 
 ---
 
-### 3. Rodando o Frontend (React / Vite)
+### 4. Frontend (React / Vite)
 
 1. Abra um novo terminal na raiz e acesse a pasta do frontend:
    ```bash
@@ -105,6 +127,22 @@ CREATE DATABASE tesouraria CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    npm run dev
    ```
    * O Frontend estará acessível em: `http://localhost:5173`
+
+> ⚠️ A URL da API está fixa em `src/services/api.ts` (`baseURL: 'http://localhost:8080'`). Se o backend estiver em outra máquina/host, ajuste esse arquivo e rode `npm run dev` de novo. Em produção, use HTTPS (o cookie de sessão exige canal seguro).
+
+---
+
+## 🧰 Solução de problemas comuns (erros já vistos neste projeto)
+
+| Erro (último `Caused by` do log) | Onde está | O que fazer |
+| :--- | :--- | :--- |
+| `Could not resolve placeholder 'JWT_SECRET'` | `.env` ausente, com nome de chave errado ou app iniciado fora de `Bese_Projeto/` | Conferir `Bese_Projeto/.env` com as 5 chaves em maiúsculo; rodar a partir de `Bese_Projeto/`; restart completo |
+| `Access denied for user ... 1044` | Falta `GRANT` no MySQL | Rodar o bloco `GRANT ALL PRIVILEGES ON tesouraria.*` do passo 1 (senha igual ao `DB_PASSWORD`) |
+| `Access denied ... 1045` | Senha errada | Conferir `DB_PASSWORD` vs senha do `CREATE USER` |
+| Flyway `V1 ... 1824 Failed to open table 'payment_note'` | Banco criado antes da `V0__baseline.sql` existir | Este projeto já inclui a `V0`; em banco novo não acontece. Se acontecer, o banco está em estado antigo — recrie vazio |
+| Flyway `Checksum mismatch` / `Detected failed migration` | Arquivo de migration editado após rodar, ou migration falha registrada | Em dev com banco descartável: recriar o banco vazio e subir de novo. **Nunca** marque `success=1` na mão no `flyway_schema_history` |
+| Hibernate `Schema-validation: missing column [x]` | Coluna fora do padrão snake_case no banco | As migrations oficiais já seguem o padrão; acontece se alguma tabela foi criada manualmente |
+| Frontend `Network Error` / `CORS` | `CORS_ALLOWED_ORIGINS` divergente ou `baseURL` apontando p/ host errado | Alinhar `CORS_ALLOWED_ORIGINS` com a URL do `npm run dev` (sem barra final) |
 
 ---
 
