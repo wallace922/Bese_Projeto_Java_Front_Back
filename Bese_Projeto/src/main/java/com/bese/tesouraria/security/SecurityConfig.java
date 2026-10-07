@@ -4,6 +4,7 @@ import com.bese.tesouraria.exception.JwtAuthenticationEntryPoint;
 
 import org.springframework.beans.factory.annotation.Value;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.context.annotation.Bean;
@@ -56,12 +57,24 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        // Suporta uma ou várias origens separadas por vírgula no .env
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        // Fail-fast: wildcard + credentials exporia o cookie jwt_token a qualquer site
+        if (origins.contains("*")) {
+            throw new IllegalStateException(
+                    "CORS_ALLOWED_ORIGINS não pode ser '*' com allowCredentials=true. Informe a(s) origem(ns) exata(s).");
+        }
+
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(allowedOrigins));
+        configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration
                 .setAllowedHeaders(List.of("Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

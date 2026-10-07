@@ -30,6 +30,7 @@ import type {
   TaxRuleItemDto,
 } from '../types';
 import { formatCNPJ, formatCurrency, formatDate, applyDateMask, parseBRCurrency } from '../lib/utils';
+import { useToast } from '../contexts/ToastContext';
 
 // ── Tabs config ───────────────────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ function FormEmpresa() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<EmpresaDto | null>(null);
+  const { success: toastSuccess } = useToast();
 
   function handleCnpj(v: string) { setCnpj(applyCnpjMask(v)); }
 
@@ -114,7 +116,11 @@ function FormEmpresa() {
     setLoading(true);
     const dto: EmpresaDto = { nome: nome.trim(), cnpj: cnpj.replace(/\D/g, '') };
     const result = await saveEmpresa(dto);
-    if (result.data) { setSuccess(result.data); setNome(''); setCnpj(''); }
+    if (result.data) {
+      setSuccess(result.data);
+      toastSuccess('Empresa cadastrada com sucesso!');
+      setNome(''); setCnpj('');
+    }
     else { setError(result.errorMessage ?? 'Erro ao salvar empresa.'); }
     setLoading(false);
   }
@@ -156,6 +162,7 @@ function FormEmpenho() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<EmpenhoDto | null>(null);
+  const { success: toastSuccess } = useToast();
 
   async function handleSave() {
     setError(null); setSuccess(null);
@@ -178,6 +185,7 @@ function FormEmpenho() {
     const result = await saveEmpenho(dto);
     if (result.data) {
       setSuccess(result.data);
+      toastSuccess('Empenho cadastrado com sucesso!');
       setNumero(''); setAno(''); setFontDeOrigin(''); setInternalPlan(''); setNature('');
     } else { setError(result.errorMessage ?? 'Erro ao salvar.'); }
     setLoading(false);
@@ -225,6 +233,7 @@ function FormFinancialPlanning() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<FinancialPlanningDto | null>(null);
+  const { success: toastSuccess } = useToast();
 
   async function handleSave() {
     setError(null); setSuccess(null);
@@ -245,6 +254,7 @@ function FormFinancialPlanning() {
     const result = await saveFinancialPlanning(dto);
     if (result.data) {
       setSuccess(result.data);
+      toastSuccess('Financial Planning cadastrado com sucesso!');
       setNumero(''); setData(''); setVinculation(''); setOrigin('');
     } else { setError(result.errorMessage ?? 'Erro ao salvar financial planning.'); }
     setLoading(false);
@@ -299,6 +309,7 @@ function FormPaymentNote() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<PaymentNoteDto | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const { success: toastSuccess } = useToast();
 
   function updateItem(idx: number, next: ItemEditState) {
     setNpItems(prev => prev.map((it, i) => i === idx ? next : it));
@@ -366,6 +377,7 @@ function FormPaymentNote() {
     const result = await savePaymentNote(dto);
     if (result.data) {
       setSuccess(result.data);
+      toastSuccess('Payment Note cadastrada com sucesso!');
       setNumeroNp(''); setDataLiq(''); setDocOrigin('');
       setCnpj(''); setCnpjValid(null); setEmpresaNome('');
       setStatus('A_PAGAR'); setDatePayment('');
@@ -560,6 +572,7 @@ function FormTaxRule() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<TaxRuleDto | null>(null);
+  const { success: toastSuccess } = useToast();
 
   async function handleSave() {
     setError(null); setSuccess(null);
@@ -587,6 +600,7 @@ function FormTaxRule() {
     const result = await createTaxRuleVersion(dto);
     if (result.data) {
       setSuccess(result.data);
+      toastSuccess('Regra de Imposto cadastrada com sucesso!');
       setCodEfd(''); setCodigoReceita(''); setDescription('');
       setInicioVigencia(''); setFimVigencia('');
       setItems([{ taxType: '', rate: 0 }]);
@@ -695,12 +709,14 @@ export default function Cadastro() {
         <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
       </div>
 
+      {/* Abas sempre montadas (só ocultas): preserva o formulário
+          preenchido ao trocar de aba. */}
       <div className="px-3 sm:px-6 py-6">
-        {activeTab === 'empresa'           && <FormEmpresa />}
-        {activeTab === 'empenho'           && <FormEmpenho />}
-        {activeTab === 'financialPlanning' && <FormFinancialPlanning />}
-        {activeTab === 'paymentNote'       && <FormPaymentNote />}
-        {activeTab === 'taxRule'           && <FormTaxRule />}
+        <div className={activeTab === 'empresa' ? '' : 'hidden'}><FormEmpresa /></div>
+        <div className={activeTab === 'empenho' ? '' : 'hidden'}><FormEmpenho /></div>
+        <div className={activeTab === 'financialPlanning' ? '' : 'hidden'}><FormFinancialPlanning /></div>
+        <div className={activeTab === 'paymentNote' ? '' : 'hidden'}><FormPaymentNote /></div>
+        <div className={activeTab === 'taxRule' ? '' : 'hidden'}><FormTaxRule /></div>
       </div>
     </PageShell>
   );

@@ -7,7 +7,6 @@ import org.springframework.cache.annotation.EnableCaching;
 @EnableCaching
 @SpringBootApplication
 public class TesourariaApplication {
-
 	public static void main(String[] args) {
 		SpringApplication.run(TesourariaApplication.class, args);
 	}

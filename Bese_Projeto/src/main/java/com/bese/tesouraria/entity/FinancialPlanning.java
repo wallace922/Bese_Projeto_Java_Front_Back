@@ -31,6 +31,12 @@ public class FinancialPlanning {
     @Digits(integer = 6, fraction = 0)
     private Integer origin;
 
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "updated_by")
+    private Long updatedBy;
+
     public FinancialPlanning() {
     }
 

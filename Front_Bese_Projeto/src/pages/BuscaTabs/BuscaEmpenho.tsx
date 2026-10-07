@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
-import Alert from '../../components/Alert';
+import EmptyState from '../../components/EmptyState';
 import EditIconButton from '../../components/EditIconButton';
 import PaginationControls from '../../components/PaginationControls';
 import { findEmpenhoByNumeroEAno, getAllEmpenho, updateEmpenho } from '../../services/api';
 import type { EmpenhoDto } from '../../types';
 import { SectionTitle, TableContainer } from './Shared';
 import { useEntitySearch } from '../../hooks/useEntitySearch';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function BuscaEmpenho() {
+  const { error: toastError } = useToast();
+  const [highlightId, setHighlightId] = useState<number | null>(null);
   const [sNumero, setSNumero] = useState('');
   const [sAno, setSAno]       = useState('');
 
@@ -26,8 +29,7 @@ export default function BuscaEmpenho() {
     currentPage, totalPages, totalElements,
     found, setFound,
     editing, setEditing,
-    saving, saveError, setSaveError,
-    success, setSuccess,
+    saving,
     resetSearch,
     handleSearchRequest,
     handleGetAllRequest,
@@ -53,7 +55,7 @@ export default function BuscaEmpenho() {
     const anoNum = parseInt(ano, 10);
     const natNum = parseInt(nature, 10);
     if (isNaN(num) || isNaN(anoNum) || isNaN(natNum)) {
-      setSaveError('Número, Ano e Natureza devem ser numéricos válidos.');
+      toastError('Número, Ano e Natureza devem ser numéricos válidos.');
       return;
     }
     const fontNum = fontDeOrigin && fontDeOrigin.trim() !== '' ? parseInt(fontDeOrigin, 10) : undefined;
@@ -70,12 +72,16 @@ export default function BuscaEmpenho() {
       'Empenho atualizado com sucesso!',
       () => handleGetAllRequest(getAllEmpenho)
     );
+    if (found.id != null) {
+      setHighlightId(found.id);
+      window.setTimeout(() => setHighlightId(current => (current === found.id ? null : current)), 4000);
+    }
   };
 
   const handleSearch = () => {
     if (!sNumero || !sAno) {
       resetSearch();
-      setError('Informe Nº e Ano.');
+      toastError('Informe Nº e Ano.');
       return;
     }
     handleSearchRequest(
@@ -100,7 +106,14 @@ export default function BuscaEmpenho() {
         </div>
       </div>
 
-      {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
+      {error && (
+        <EmptyState
+          title="Nenhum resultado"
+          hint={error}
+          actionLabel="Listar todos"
+          onAction={handleGetAll}
+        />
+      )}
 
       {editing && found && (
         <div className="glass-panel p-5 animate-fadeIn mt-6 max-w-2xl">
@@ -116,8 +129,6 @@ export default function BuscaEmpenho() {
             <Button onClick={handleSave} loading={saving}>Salvar Alterações</Button>
             <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
           </div>
-          {saveError && <Alert variant="error" message={saveError} onClose={() => setSaveError(null)} />}
-          {success && <Alert variant="success" message={success} onClose={() => setSuccess(null)} />}
         </div>
       )}
 
@@ -146,7 +157,7 @@ export default function BuscaEmpenho() {
               </thead>
               <tbody>
                 {allResults.map((e, i) => (
-                  <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
+                  <tr key={i} className={`border-b border-stone-800 hover:bg-stone-800/30 transition-colors ${highlightId != null && e.id === highlightId ? 'bg-amber-500/10 outline outline-1 outline-amber-500/50' : ''}`}>
                     <td className="py-2 pr-4 text-amber-300 font-mono">{e.numero}</td>
                     <td className="py-2 pr-4 text-gray-300">{e.ano}</td>
                     <td className="py-2 pr-4 text-gray-300">{e.internalPlan}</td>

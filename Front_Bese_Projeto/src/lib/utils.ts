@@ -15,6 +15,18 @@ export function formatCNPJ(cnpj: string | number): string {
   );
 }
 
+/**
+ * Mascara CPF para exibição (LGPD/minimização): mostra só os 2 últimos
+ * dígitos. Ex: "11144477735" → "***.***.***-35".
+ * Valores fora do padrão (≠11 dígitos) voltam mascarados por segurança.
+ */
+export function maskCpf(cpf: string | number | null | undefined): string {
+  if (cpf === null || cpf === undefined) return '';
+  const digits = String(cpf).replace(/\D/g, '');
+  if (digits.length !== 11) return '***';
+  return `***.***.***-${digits.slice(-2)}`;
+}
+
 export function formatDate(dateStr: string): string {
   if (!dateStr) return '';
   const [year, month, day] = dateStr.split('-');

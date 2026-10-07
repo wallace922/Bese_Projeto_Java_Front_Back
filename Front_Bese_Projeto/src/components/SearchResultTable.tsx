@@ -4,13 +4,16 @@ import type { PaymentNoteDto } from '../types';
 import { formatCNPJ, formatCurrency, formatDate } from '../lib/utils';
 import EditIconButton from './EditIconButton';
 import TaxItemsDisplay from './TaxItemsDisplay';
+import StatusBadge, { type PaymentStatus } from './StatusBadge';
 
 interface SearchResultTableProps {
   data: PaymentNoteDto[];
   onEdit: (np: PaymentNoteDto) => void;
+  /** ID recém-salvo: linha recebe destaque temporário. */
+  highlightId?: number | null;
 }
 
-export default function SearchResultTable({ data, onEdit }: SearchResultTableProps) {
+export default function SearchResultTable({ data, onEdit, highlightId }: SearchResultTableProps) {
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
 
   function toggleExpand(index: number) {
@@ -36,9 +39,10 @@ export default function SearchResultTable({ data, onEdit }: SearchResultTablePro
           // Agrega os items para exibição de tributação
           const firstItemTax = np.items?.[0]?.tax ?? null;
           const totalValue = np.value ?? np.items?.reduce((s, it) => s + it.value, 0) ?? 0;
+          const isHighlighted = highlightId != null && np.id === highlightId;
           return (
             <>
-              <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30 align-top">
+              <tr key={i} className={`border-b border-stone-800 hover:bg-stone-800/30 align-top transition-colors ${isHighlighted ? 'bg-amber-500/10 outline outline-1 outline-amber-500/50' : ''}`}>
                 <td className="py-2 pr-3 text-amber-300 font-mono">{np.numeroNp}</td>
                 <td className="py-2 pr-3 text-gray-300 whitespace-nowrap">{formatDate(np.dataLiquidacao)}</td>
                 <td className="py-2 pr-3 text-gray-300">
@@ -47,7 +51,7 @@ export default function SearchResultTable({ data, onEdit }: SearchResultTablePro
                 </td>
                 <td className="py-2 pr-3 text-stone-500">{np.docOrigin}</td>
                 <td className="py-2 pr-3 text-amber-300 text-right">{formatCurrency(totalValue)}</td>
-                <td className="py-2 pr-3 text-stone-500">{np.status}</td>
+                <td className="py-2 pr-3"><StatusBadge status={np.status as PaymentStatus} /></td>
                 <td className="py-2 pr-3 w-16">
                   <div className="flex items-center gap-1">
                     {(np.items?.length ?? 0) > 0 && (

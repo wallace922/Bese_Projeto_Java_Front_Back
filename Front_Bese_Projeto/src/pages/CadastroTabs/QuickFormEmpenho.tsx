@@ -4,6 +4,7 @@ import Button from '../../components/Button';
 import Alert from '../../components/Alert';
 import { saveEmpenho } from '../../services/api';
 import type { EmpenhoDto } from '../../types';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function QuickFormEmpenho() {
   const [numero, setNumero] = useState('');
@@ -11,6 +12,7 @@ export default function QuickFormEmpenho() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<EmpenhoDto | null>(null);
+  const { success: toastSuccess } = useToast();
 
   async function handleSave() {
     setError(null);
@@ -28,6 +30,7 @@ export default function QuickFormEmpenho() {
     const result = await saveEmpenho(dto);
     if (result.data) {
       setSuccess(result.data);
+      toastSuccess('Empenho cadastrado com sucesso!');
       setNumero('');
       setAno('');
     } else {

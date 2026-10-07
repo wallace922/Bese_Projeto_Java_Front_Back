@@ -1,6 +1,8 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
+import ToastViewport from './components/ToastViewport';
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
 import Login from './pages/Login';
@@ -13,6 +15,7 @@ import Admin from './pages/Admin';
 export default function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <BrowserRouter>
         <Routes>
           {/* Rota pública */}
@@ -27,10 +30,12 @@ export default function App() {
           {/* Rota exclusiva de ADMIN */}
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
 
-          {/* Fallback: redireciona para login */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+        {/* Fallback: redireciona para login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+      <ToastViewport />
       </BrowserRouter>
+      </ToastProvider>
     </AuthProvider>
   );
 }

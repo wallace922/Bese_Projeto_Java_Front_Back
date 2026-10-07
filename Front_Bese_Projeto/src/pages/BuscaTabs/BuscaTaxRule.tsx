@@ -1,7 +1,7 @@
 import { useState, useMemo, Fragment } from 'react';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
-import Alert from '../../components/Alert';
+import EmptyState from '../../components/EmptyState';
 import EditIconButton from '../../components/EditIconButton';
 import TaxRuleItemEditor from '../../components/TaxRuleItemEditor';
 import {
@@ -12,6 +12,7 @@ import {
 import type { TaxRuleDto, TaxRuleItemDto } from '../../types';
 import { SectionTitle, TableContainer } from './Shared';
 import { toInputDate } from '../../lib/utils';
+import { useToast } from '../../contexts/ToastContext';
 
 // ── DescriptionCell ───────────────────────────────────────────────────────────
 
@@ -68,6 +69,8 @@ function isOpen(rule: TaxRuleDto): boolean {
 // ── Componente ────────────────────────────────────────────────────────────────
 
 export default function BuscaTaxRule() {
+  const { success: toastSuccess, error: toastError } = useToast();
+  const [highlightId, setHighlightId] = useState<number | null>(null);
   const [sId, setSId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,8 +92,7 @@ export default function BuscaTaxRule() {
 
   // Feedback
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [, setSaveError] = useState<string | null>(null);
 
   // ── Agrupamento por codEfd ─────────────────────────────────────────────────
 
@@ -126,7 +128,6 @@ export default function BuscaTaxRule() {
     setSelected(null);
     setMode('idle');
     setSaveError(null);
-    setSuccess(null);
   }
 
   function closeForm() {
@@ -148,7 +149,6 @@ export default function BuscaTaxRule() {
     setMode('edit-details');
     setShowAll(false);
     setSaveError(null);
-    setSuccess(null);
   }
 
 
@@ -156,7 +156,7 @@ export default function BuscaTaxRule() {
   // ── Busca ─────────────────────────────────────────────────────────────────
 
   async function handleSearchById() {
-    if (!sId) { setError('Informe o ID da regra.'); return; }
+    if (!sId) { toastError('Informe o ID da regra.'); return; }
     resetState();
     setLoading(true);
     const res = await getTaxRuleById(parseInt(sId, 10));
@@ -164,7 +164,9 @@ export default function BuscaTaxRule() {
       setAllResults([res.data]);
       setShowAll(true);
     } else {
-      setError(res.errorMessage ?? 'Regra não encontrada.');
+      const msg = res.errorMessage ?? 'Regra não encontrada.';
+      setError(msg);
+      toastError(msg);
     }
     setLoading(false);
   }
@@ -177,7 +179,9 @@ export default function BuscaTaxRule() {
       setAllResults(res.data);
       setShowAll(true);
     } else {
-      setError('Nenhuma regra de imposto encontrada.');
+      const msg = 'Nenhuma regra de imposto encontrada.';
+      setError(msg);
+      toastError(msg);
     }
     setLoading(false);
   }
@@ -186,13 +190,13 @@ export default function BuscaTaxRule() {
 
   async function handleSaveEditDetails() {
     if (!selected || selected.id === undefined) return;
-    if (!description.trim()) { setSaveError('A descrição é obrigatória.'); return; }
-    if (description.trim().length > 300) { setSaveError('A descrição deve ter no máximo 300 caracteres.'); return; }
+    if (!description.trim()) { toastError('A descrição é obrigatória.'); return; }
+    if (description.trim().length > 300) { toastError('A descrição deve ter no máximo 300 caracteres.'); return; }
     const codRecNum = parseInt(codigoReceita, 10);
-    if (isNaN(codRecNum)) { setSaveError('O Código de Receita deve ser numérico.'); return; }
-    if (!inicioVigencia) { setSaveError('A data de início de vigência é obrigatória.'); return; }
-    if (items.some(it => !it.taxType.trim())) { setSaveError('Todos os tipos de imposto devem ser preenchidos.'); return; }
-    if (items.some(it => isNaN(it.rate) || it.rate < 0)) { setSaveError('As alíquotas não podem ser valores negativos ou inválidos.'); return; }
+    if (isNaN(codRecNum)) { toastError('O Código de Receita deve ser numérico.'); return; }
+    if (!inicioVigencia) { toastError('A data de início de vigência é obrigatória.'); return; }
+    if (items.some(it => !it.taxType.trim())) { toastError('Todos os tipos de imposto devem ser preenchidos.'); return; }
+    if (items.some(it => isNaN(it.rate) || it.rate < 0)) { toastError('As alíquotas não podem ser valores negativos ou inválidos.'); return; }
 
     setSaving(true); setSaveError(null);
     const res = await updateTaxRule(selected.id, {
@@ -203,11 +207,18 @@ export default function BuscaTaxRule() {
       items,
     });
     if (res.data) {
-      setSuccess('Regra atualizada com sucesso!');
+      toastSuccess('Regra atualizada com sucesso!');
       setAllResults(prev => prev.map(r => r.id === res.data!.id ? res.data! : r));
-      setTimeout(() => { setSuccess(null); closeForm(); }, 2000);
+      if (res.data.id != null) {
+        const savedId = res.data.id;
+        setHighlightId(savedId);
+        window.setTimeout(() => setHighlightId(current => (current === savedId ? null : current)), 4000);
+      }
+      setTimeout(() => { closeForm(); }, 2000);
     } else {
-      setSaveError(res.errorMessage ?? 'Erro ao atualizar.');
+      const msg = res.errorMessage ?? 'Erro ao atualizar.';
+      setSaveError(msg);
+      toastError(msg);
     }
     setSaving(false);
   }
@@ -241,7 +252,14 @@ export default function BuscaTaxRule() {
         </div>
       </div>
 
-      {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
+      {error && (
+        <EmptyState
+          title="Nenhum resultado"
+          hint={error}
+          actionLabel="Listar todas"
+          onAction={handleGetAll}
+        />
+      )}
 
       {/* ── Formulário: Editar Detalhes / Nova Versão / Encerrar Vigência ── */}
       {mode !== 'idle' && selected && (
@@ -332,9 +350,6 @@ export default function BuscaTaxRule() {
             <Button onClick={handleSave} loading={saving}>Salvar Alterações</Button>
             <Button variant="ghost" onClick={closeForm}>Cancelar</Button>
           </div>
-
-          {saveError && <Alert variant="error" message={saveError} onClose={() => setSaveError(null)} />}
-          {success && <Alert variant="success" message={success} onClose={() => setSuccess(null)} />}
         </div>
       )}
 
@@ -380,10 +395,11 @@ export default function BuscaTaxRule() {
                       {/* Versões do grupo */}
                       {versions.map((rule) => {
                         const open = isOpen(rule);
+                        const isHighlighted = highlightId != null && rule.id === highlightId;
                         return (
                           <tr
                             key={rule.id}
-                            className={`border-b border-stone-800/50 hover:bg-stone-800/20 ${!open ? 'opacity-60' : ''}`}
+                            className={`border-b border-stone-800/50 hover:bg-stone-800/20 transition-colors ${!open ? 'opacity-60' : ''} ${isHighlighted ? 'bg-amber-500/10 outline outline-1 outline-amber-500/50' : ''}`}
                           >
                             <td className="py-2 px-3 text-amber-300 font-mono text-sm">{rule.id}</td>
                             <td className="py-2 px-3 text-amber-400 font-mono font-bold text-sm">{rule.codigoReceita}</td>

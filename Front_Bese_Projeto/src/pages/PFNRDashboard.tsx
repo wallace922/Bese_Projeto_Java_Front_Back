@@ -12,6 +12,10 @@ import {
 } from '../services/api';
 import type { PaymentNoteDto, EmpenhoDto } from '../types';
 import { formatCurrency, formatCNPJ, formatDate } from '../lib/utils';
+import { logger } from '../lib/logger';
+import StatusBadge from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
+import { useToast } from '../contexts/ToastContext';
 
 const PAGE_SIZE = 20;
 
@@ -49,22 +53,6 @@ function normalizeRow(raw: any): NormalizedRow | null {
 
 // ── Helpers visuais ───────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    CANCELADA: 'bg-red-900/60 text-red-300 border border-red-700',
-    PAGA:      'bg-emerald-900/60 text-emerald-300 border border-emerald-700',
-    A_PAGAR:   'bg-amber-900/60 text-amber-300 border border-amber-600',
-  };
-  const label: Record<string, string> = {
-    CANCELADA: 'Cancelada', PAGA: 'Paga', A_PAGAR: 'A Pagar',
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${map[status] ?? 'bg-stone-700 text-stone-300 border border-stone-600'}`}>
-      {label[status] ?? status}
-    </span>
-  );
-}
-
 function extractYear(dateStr: string): string {
   if (!dateStr) return '';
   if (dateStr.includes('/')) { const p = dateStr.split('/'); return p.length === 3 ? p[2] : ''; }
@@ -90,7 +78,7 @@ export default function PFNRDashboard() {
   const [editMap, setEditMap]     = useState<Record<number, RowEdit>>({});
   const [savingMap, setSavingMap] = useState<Record<number, boolean>>({});
   const [errMap, setErrMap]       = useState<Record<number, string>>({});
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const { success: toastSuccess, error: toastError } = useToast();
 
   // ── Carregamento ──────────────────────────────────────────────────────────
 
@@ -109,11 +97,13 @@ export default function PFNRDashboard() {
         setTotalPages(d.totalPages ?? 0);
         setTotalElements(d.totalElements ?? rawContent.length);
       } else {
-        setListError(res.errorMessage ?? 'Erro ao carregar registros.');
+        const msg = res.errorMessage ?? 'Erro ao carregar registros.';
+        setListError(msg);
+        toastError(msg);
       }
     } catch (e) {
-      setListError('Erro inesperado ao carregar. Verifique o console.');
-      console.error('[PFNRDashboard] loadPage error:', e);
+      setListError('Erro inesperado ao carregar. Tente novamente.');
+      logger.error('[PFNRDashboard] loadPage error:', e);
     }
     setLoading(false);
   }
@@ -193,10 +183,12 @@ export default function PFNRDashboard() {
     });
     if (updateRes.data) {
       cancelEdit(id);
-      setSuccessMsg(`Vínculo #${id} associado ao PF nº ${fpNum}/${fpAno} com sucesso!`);
+      toastSuccess(`Vínculo #${id} associado ao PF nº ${fpNum}/${fpAno} com sucesso!`);
       await loadPage(currentPage);
     } else {
-      setErrMap(prev => ({ ...prev, [id]: updateRes.errorMessage ?? 'Erro ao atualizar.' }));
+      const msg = updateRes.errorMessage ?? 'Erro ao atualizar.';
+      setErrMap(prev => ({ ...prev, [id]: msg }));
+      toastError(msg);
     }
     setSavingMap(prev => ({ ...prev, [id]: false }));
   }
@@ -220,17 +212,17 @@ export default function PFNRDashboard() {
             ↺ Recarregar
           </Button>
         </div>
-        {successMsg && (
-          <div className="mt-3">
-            <Alert variant="success" message={successMsg} onClose={() => setSuccessMsg(null)} />
-          </div>
-        )}
       </div>
 
       <div className="px-3 sm:px-6 py-6">
         {listError && (
           <div className="mb-4">
-            <Alert variant="error" message={listError} onClose={() => setListError(null)} />
+            <EmptyState
+              title="Não foi possível carregar"
+              hint={listError}
+              actionLabel="Tentar de novo"
+              onAction={() => loadPage(currentPage)}
+            />
           </div>
         )}
 

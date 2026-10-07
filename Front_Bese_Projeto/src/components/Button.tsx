@@ -41,6 +41,7 @@ export default function Button({
   return (
     <button
       disabled={isDisabled}
+      data-variant={variant}
       className={[
         'inline-flex items-center justify-center gap-2 transition-all duration-150 tracking-wide',
         variantClasses[variant],

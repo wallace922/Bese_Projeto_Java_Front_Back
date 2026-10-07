@@ -5,6 +5,7 @@ import Alert from '../../components/Alert';
 import { saveEmpresa } from '../../services/api';
 import type { EmpresaDto } from '../../types';
 import { formatCNPJ } from '../../lib/utils';
+import { useToast } from '../../contexts/ToastContext';
 
 function applyCnpjMask(value: string): string {
   const d = value.replace(/\D/g, '').slice(0, 14);
@@ -21,6 +22,7 @@ export default function QuickFormEmpresa() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<EmpresaDto | null>(null);
+  const { success: toastSuccess } = useToast();
 
   function handleCnpj(v: string) {
     setCnpj(applyCnpjMask(v));
@@ -45,6 +47,7 @@ export default function QuickFormEmpresa() {
     const result = await saveEmpresa(dto);
     if (result.data) {
       setSuccess(result.data);
+      toastSuccess('Empresa cadastrada com sucesso!');
       setCnpj('');
       setNome('');
     } else {

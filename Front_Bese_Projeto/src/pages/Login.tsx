@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import Button from '../components/Button';
 
 export default function Login() {
   const { login, isAuthenticated } = useAuth();
@@ -112,14 +113,14 @@ export default function Login() {
               </div>
             )}
 
-            <button
+            <Button
               id="login-submit"
               type="submit"
-              disabled={loading}
-              className="w-full mt-2 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-black font-black uppercase tracking-widest text-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20"
+              loading={loading}
+              className="w-full mt-2 shadow-lg shadow-amber-500/20"
             >
               {loading ? 'Entrando...' : 'Entrar'}
-            </button>
+            </Button>
           </form>
         </div>
       </div>

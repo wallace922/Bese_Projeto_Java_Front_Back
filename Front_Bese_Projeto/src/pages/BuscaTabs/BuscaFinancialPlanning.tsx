@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
-import Alert from '../../components/Alert';
+import EmptyState from '../../components/EmptyState';
 import EditIconButton from '../../components/EditIconButton';
 import PaginationControls from '../../components/PaginationControls';
 import { findFinancialPlanningByNumber, getAllFinancialPlanning, updateFinancialPlanning } from '../../services/api';
@@ -9,8 +9,11 @@ import type { FinancialPlanningDto } from '../../types';
 import { formatDate, toInputDate } from '../../lib/utils';
 import { SectionTitle, TableContainer } from './Shared';
 import { useEntitySearch } from '../../hooks/useEntitySearch';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function BuscaFinancialPlanning() {
+  const { error: toastError } = useToast();
+  const [highlightId, setHighlightId] = useState<number | null>(null);
   const [sNumero, setSNumero] = useState('');
   const [sAno, setSAno]       = useState('');
   const [numero, setNumero]   = useState('');
@@ -25,8 +28,7 @@ export default function BuscaFinancialPlanning() {
     currentPage, totalPages, totalElements,
     found, setFound,
     editing, setEditing,
-    saving, saveError, setSaveError,
-    success, setSuccess,
+    saving,
     handleSearchRequest,
     handleGetAllRequest,
     handleNextPage,
@@ -50,7 +52,7 @@ export default function BuscaFinancialPlanning() {
     const vinc = parseInt(vinculation, 10);
     const orig = parseInt(origin, 10);
     if (isNaN(num) || isNaN(vinc) || isNaN(orig)) {
-      setSaveError('Número, Vinculação e Origem devem ser valores numéricos válidos.');
+      toastError('Número, Vinculação e Origem devem ser valores numéricos válidos.');
       return;
     }
     const payload: FinancialPlanningDto = {
@@ -65,11 +67,15 @@ export default function BuscaFinancialPlanning() {
       'Financial Planning atualizado!',
       () => handleGetAllRequest(getAllFinancialPlanning)
     );
+    if (found.id != null) {
+      setHighlightId(found.id);
+      window.setTimeout(() => setHighlightId(current => (current === found.id ? null : current)), 4000);
+    }
   };
 
   const handleSearch = () => {
-    if (!sNumero) { setError('Informe o Nº PF.'); return; }
-    if (!sAno) { setError('Informe o Ano do PF.'); return; }
+    if (!sNumero) { toastError('Informe o Nº PF.'); return; }
+    if (!sAno) { toastError('Informe o Ano do PF.'); return; }
     handleSearchRequest(
       () => findFinancialPlanningByNumber(parseInt(sNumero, 10), parseInt(sAno, 10)),
       (data) => { handleEdit(data); }
@@ -98,7 +104,14 @@ export default function BuscaFinancialPlanning() {
         </div>
       </div>
 
-      {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
+      {error && (
+        <EmptyState
+          title="Nenhum resultado"
+          hint={error}
+          actionLabel="Listar todos"
+          onAction={handleGetAll}
+        />
+      )}
 
       {editing && found && (
         <div className="glass-panel p-5 animate-fadeIn mt-6 max-w-2xl">
@@ -113,8 +126,6 @@ export default function BuscaFinancialPlanning() {
             <Button onClick={handleSave} loading={saving}>Salvar Alterações</Button>
             <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
           </div>
-          {saveError && <Alert variant="error" message={saveError} onClose={() => setSaveError(null)} />}
-          {success && <Alert variant="success" message={success} onClose={() => setSuccess(null)} />}
         </div>
       )}
 
@@ -142,7 +153,7 @@ export default function BuscaFinancialPlanning() {
               </thead>
               <tbody>
                 {allResults.map((e, i) => (
-                  <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
+                  <tr key={i} className={`border-b border-stone-800 hover:bg-stone-800/30 transition-colors ${highlightId != null && e.id === highlightId ? 'bg-amber-500/10 outline outline-1 outline-amber-500/50' : ''}`}>
                     <td className="py-2 pr-4 text-amber-300 font-mono">#{e.numero}</td>
                     <td className="py-2 pr-4 text-gray-300">{formatDate(e.data)}</td>
                     <td className="py-2 pr-4 text-gray-300">{e.vinculation}</td>

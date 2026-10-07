@@ -7,6 +7,7 @@ import com.bese.tesouraria.dto.UserResponseDto;
 import com.bese.tesouraria.dto.UserUpdateDto;
 import com.bese.tesouraria.entity.User;
 import com.bese.tesouraria.mapper.UserMapper;
+import com.bese.tesouraria.service.RevokedTokenService;
 import com.bese.tesouraria.service.UserService;
 
 import jakarta.validation.Valid;
@@ -39,13 +40,16 @@ public class UserController {
     private final TokenUtil tokenUtil;
     private final CookieUtil cookieUtil;
     private final UserService userService;
+    private final RevokedTokenService revokedTokenService;
     private final UserMapper mapper;
 
-    public UserController(UserService userService, UserMapper mapper, TokenUtil tokenUtil, CookieUtil cookieUtil) {
+    public UserController(UserService userService, UserMapper mapper, TokenUtil tokenUtil, CookieUtil cookieUtil,
+            RevokedTokenService revokedTokenService) {
         this.userService = userService;
         this.mapper = mapper;
         this.tokenUtil = tokenUtil;
         this.cookieUtil = cookieUtil;
+        this.revokedTokenService = revokedTokenService;
     }
 
     @GetMapping
@@ -93,6 +97,10 @@ public class UserController {
         userToUpdate.setPassword(dto.getPassword());
 
         User updatedUser = userService.update(id, userToUpdate);
+        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
+            // Senha trocada: invalida a sessão atual, força novo login
+            revokeCurrentToken(request);
+        }
         log.info("AUDIT_USER_UPDATED | targetUserId={} | newRole={} | ip={}", id, dto.getRole(), request.getRemoteAddr());
         return ResponseEntity.ok(mapper.toResponseDto(updatedUser));
     }
@@ -118,7 +126,7 @@ public class UserController {
                     .header(HttpHeaders.SET_COOKIE, cookie.toString())
                     .body(mapper.toResponseDto(user));
         } catch (RuntimeException e) {
-            log.warn("AUDIT_LOGIN_FAILED | cpf={} | ip={} | reason={}", dto.getCpf(), request.getRemoteAddr(), e.getMessage());
+            log.warn("AUDIT_LOGIN_FAILED | ip={} | reason={}", request.getRemoteAddr(), e.getMessage());
             throw e;
         }
     }
@@ -126,11 +134,28 @@ public class UserController {
     @PostMapping("/logout")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Void> logout(HttpServletRequest request, Authentication authentication) {
+        revokeCurrentToken(request);
         ResponseCookie cleanCookie = cookieUtil.createCleanJwtCookie();
         String userId = authentication != null ? authentication.getName() : "ANONYMOUS";
         log.info("AUDIT_LOGOUT | userId={} | ip={}", userId, request.getRemoteAddr());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cleanCookie.toString())
                 .build();
+    }
+
+    // Invalida o token do cookie atual (logout / troca de senha).
+    // Tokens sem jti (emitidos antes desta mudança) apenas expiram sozinhos.
+    private void revokeCurrentToken(HttpServletRequest request) {
+        if (request.getCookies() == null) {
+            return;
+        }
+        for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
+            if ("jwt_token".equals(cookie.getName())) {
+                String raw = cookie.getValue();
+                if (tokenUtil.remainingMillis(raw) > 0) {
+                    revokedTokenService.revoke(tokenUtil.extractJti(raw));
+                }
+            }
+        }
     }
 }

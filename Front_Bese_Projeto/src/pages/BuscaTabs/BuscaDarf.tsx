@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import Button from '../../components/Button';
-import Alert from '../../components/Alert';
 import Select from '../../components/Select';
 import Input from '../../components/Input';
 import { SectionTitle } from './Shared';
 import { getPaymentEmpenhoByMesAno } from '../../services/api';
 import type { EmpresaDto, PaymentNoteVinculacaoDto, PaymentNoteItemDto, TaxCalculatedItem, TaxDto } from '../../types';
 import { formatCurrency, formatCNPJ } from '../../lib/utils';
+import { logger } from '../../lib/logger';
+import EmptyState from '../../components/EmptyState';
+import { useToast } from '../../contexts/ToastContext';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -81,7 +83,7 @@ function getCalc(calc: TaxCalculatedItem[], type: string): number {
   const norm = normTaxType(type);
   const fuzzy = calc.find(c => normTaxType(c.taxType) === norm);
   if (fuzzy) {
-    console.warn(`[DARF] taxType fuzzy match: buscado="${type}", encontrado="${fuzzy.taxType}"`);
+    logger.warn(`[DARF] taxType fuzzy match: buscado="${type}", encontrado="${fuzzy.taxType}"`);
   }
   return fuzzy?.amount ?? 0;
 }
@@ -449,6 +451,7 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function BuscaDarf() {
+  const { error: toastError } = useToast();
   const [mes, setMes]         = useState('');
   const [ano, setAno]         = useState('');
   const [loading, setLoading] = useState(false);
@@ -460,8 +463,8 @@ export default function BuscaDarf() {
   async function fetchAll() {
     const mesNum = parseInt(mes, 10);
     const anoNum = parseInt(ano, 10);
-    if (!mesNum || mesNum < 1 || mesNum > 12) { setError('Selecione um mês válido.'); return; }
-    if (!anoNum || anoNum < 1900 || anoNum > 2100) { setError('Informe um ano válido.'); return; }
+    if (!mesNum || mesNum < 1 || mesNum > 12) { toastError('Selecione um mês válido.'); return; }
+    if (!anoNum || anoNum < 1900 || anoNum > 2100) { toastError('Informe um ano válido.'); return; }
     setLoading(true); setError(null);
     const result = await getPaymentEmpenhoByMesAno(mesNum, anoNum, 0, PAGE_SIZE);
     if (result.data) {
@@ -469,7 +472,9 @@ export default function BuscaDarf() {
       setResults(d.content ?? []);
       setSearched(true);
     } else {
-      setError(result.errorMessage ?? 'Erro ao buscar relatório.');
+      const msg = result.errorMessage ?? 'Erro ao buscar relatório.';
+      setError(msg);
+      toastError(msg);
     }
     setLoading(false);
   }
@@ -520,7 +525,11 @@ export default function BuscaDarf() {
             🔍 Gerar Relatório
           </Button>
         </div>
-        {error && <div className="mt-3"><Alert variant="error" message={error} onClose={() => setError(null)} /></div>}
+        {error && (
+          <div className="mt-3">
+            <EmptyState title="Nenhum resultado" hint={error} actionLabel="Tentar de novo" onAction={fetchAll} />
+          </div>
+        )}
       </div>
 
       {/* ── Loading ─────────────────────────────────────────────────────────── */}

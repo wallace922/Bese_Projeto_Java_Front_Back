@@ -1,5 +1,6 @@
 package com.bese.tesouraria.entity;
 
+import com.bese.tesouraria.converter.CnpjConverter;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,8 +17,23 @@ public class Empresa {
     @Setter
     private String nome;
 
-    @Column(length = 14)
+    // Cifrado em repouso (CnpjConverter). Buscas sempre pelo índice cego.
+    @Convert(converter = CnpjConverter.class)
+    @Column(length = 255)
     private String cnpj;
+
+    // Índice cego (HMAC dos dígitos) para busca exata e unicidade lógica.
+    @Setter
+    @Column(name = "cnpj_hash", length = 64, unique = true)
+    private String cnpjHash;
+
+    @Setter
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Setter
+    @Column(name = "updated_by")
+    private Long updatedBy;
 
     public Empresa() {
     }

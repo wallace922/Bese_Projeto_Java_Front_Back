@@ -60,12 +60,13 @@ public class PaymentNoteEmpenhoController {
         return ResponseEntity.status(201).body(mapper.toDto(paymentNoteEmpenho));
     }
 
-    @PutMapping
+    @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PaymentNoteEmpenhoBasicDto> update(
+            @PathVariable Long id,
             @Valid @RequestBody PaymentNoteEmpenhoBasicDto dto,
             HttpServletRequest request) {
-        PaymentNoteEmpenho paymentNoteEmpenho = service.update(mapper.toEntity(dto));
+        PaymentNoteEmpenho paymentNoteEmpenho = service.update(mapper.toEntity(dto), id);
         log.info("AUDIT_VINCULACAO_UPDATED | vinculacaoId={} | ip={}", paymentNoteEmpenho.getId(), request.getRemoteAddr());
 
         return ResponseEntity.status(202).body(mapper.toDto(paymentNoteEmpenho));

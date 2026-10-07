@@ -17,6 +17,9 @@ import type { PaymentNoteEmpenhoDto } from '../types';
 import { formatCurrency, formatCNPJ, formatDate, parseBRCurrency } from '../lib/utils';
 import { ReadField } from './BuscaTabs/Shared';
 import TaxItemsDisplay from '../components/TaxItemsDisplay';
+import StatusBadge from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
+import { useToast } from '../contexts/ToastContext';
 import Input from '../components/Input';
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
@@ -37,24 +40,6 @@ interface EditingMap {
 }
 
 // ── Helpers visuais ───────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: 'CANCELADA' | 'PAGA' | 'A_PAGAR' }) {
-  const map: Record<string, string> = {
-    CANCELADA: 'bg-red-900/60 text-red-300 border border-red-700',
-    PAGA: 'bg-emerald-900/60 text-emerald-300 border border-emerald-700',
-    A_PAGAR: 'bg-amber-900/60 text-amber-300 border border-amber-600',
-  };
-  const label: Record<string, string> = {
-    CANCELADA: 'Cancelada',
-    PAGA: 'Paga',
-    A_PAGAR: 'A Pagar',
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-widest ${map[status]}`}>
-      {label[status]}
-    </span>
-  );
-}
 
 function extractNpYear(dataLiquidacao: string): number | null {
   if (!dataLiquidacao) return null;
@@ -100,6 +85,14 @@ export default function Dashboard() {
 
   // Accordion expand
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+  const { success: toastSuccess, error: toastError } = useToast();
+  const [highlightId, setHighlightId] = useState<number | null>(null);
+
+  function flagHighlight(id: number | null | undefined) {
+    if (id == null) return;
+    setHighlightId(id);
+    window.setTimeout(() => setHighlightId(current => (current === id ? null : current)), 4000);
+  }
   function toggleExpand(index: number) {
     setExpandedRows(prev => ({ ...prev, [index]: !prev[index] }));
   }
@@ -116,7 +109,9 @@ export default function Dashboard() {
       setTotalElements(result.data.totalElements);
       setCurrentPage(result.data.pageNumber);
     } else {
-      setListError(result.errorMessage ?? 'Erro ao carregar registros.');
+      const msg = result.errorMessage ?? 'Erro ao carregar registros.';
+      setListError(msg);
+      toastError(msg);
     }
     setLoadingList(false);
   }
@@ -251,6 +246,8 @@ export default function Dashboard() {
 
     if (updateResult.data) {
       cancelEdit(index);
+      flagHighlight(editState.id);
+      toastSuccess('Vínculo atualizado com sucesso!');
       await loadAll();
     } else {
       setRowErrors((prev) => ({ ...prev, [index]: updateResult.errorMessage ?? 'Erro ao atualizar.' }));
@@ -266,9 +263,10 @@ export default function Dashboard() {
     setDeletingId(null);
     setConfirmDeleteId(null);
     if (result.status === 204 || result.status === 200) {
+      toastSuccess('Vínculo removido com sucesso.');
       await loadAll(currentPage);
     } else {
-      setListError(result.errorMessage ?? 'Erro ao deletar registro.');
+      toastError(result.errorMessage ?? 'Erro ao deletar registro.');
     }
   }
 
@@ -304,6 +302,8 @@ export default function Dashboard() {
     setQuickEditLoading(false);
     if (result.data) {
       setQuickEditRow(null);
+      flagHighlight(row.id);
+      toastSuccess('Valor atualizado com sucesso!');
       await loadAll(currentPage);
     } else {
       setQuickEditError(result.errorMessage ?? 'Erro ao atualizar valor.');
@@ -336,7 +336,14 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {listError && <Alert variant="error" message={listError} onClose={() => setListError(null)} />}
+        {listError && (
+          <EmptyState
+            title="Não foi possível carregar"
+            hint={listError}
+            actionLabel="Tentar de novo"
+            onAction={() => loadAll(currentPage)}
+          />
+        )}
 
         {loadingList ? (
           <div className="flex items-center justify-center py-24">
@@ -372,7 +379,7 @@ export default function Dashboard() {
                   const isEditing = !!editing;
 
                   return (
-                    <div key={index} className={`glass-panel p-3 animate-fadeIn ${isEditing ? 'ring-1 ring-inset ring-amber-600/50' : ''}`}>
+                    <div key={index} className={`glass-panel p-3 animate-fadeIn transition-colors ${isEditing ? 'ring-1 ring-inset ring-amber-600/50' : ''} ${!isEditing && highlightId != null && row.id === highlightId ? 'ring-1 ring-inset ring-amber-500/60 bg-amber-500/5' : ''}`}>
                       {isEditing ? (
                         <>
                           <div className="grid grid-cols-2 gap-2 mb-3">
@@ -531,7 +538,7 @@ export default function Dashboard() {
                       return (
                         <React.Fragment key={index}>
                           <tr
-                            className={`border-b border-stone-800 transition-colors duration-150 ${isEditing ? 'bg-amber-900/20 ring-1 ring-inset ring-amber-600/50' : 'hover:bg-stone-800/30 bg-transparent'}`}
+                            className={`border-b border-stone-800 transition-colors duration-150 ${isEditing ? 'bg-amber-900/20 ring-1 ring-inset ring-amber-600/50' : 'hover:bg-stone-800/30 bg-transparent'} ${!isEditing && highlightId != null && row.id === highlightId ? 'bg-amber-500/10 outline outline-1 outline-amber-500/50' : ''}`}
                           >
                             <td className="px-3 py-2.5">
                               <span className="text-amber-400 font-bold font-mono">{row.paymentNoteBasicDto.numeroNp}</span>
@@ -795,26 +802,24 @@ export default function Dashboard() {
 
               {/* Ações */}
               <div className="flex gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => setQuickEditRow(null)}
                   disabled={quickEditLoading}
-                  className="flex-1 py-2 rounded-lg border border-white/10 text-stone-400 text-xs font-bold uppercase tracking-widest hover:border-white/30 disabled:opacity-40 transition-colors"
+                  className="flex-1"
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
                   id="quick-edit-valor-submit"
                   type="button"
                   onClick={handleQuickValueEdit}
-                  disabled={quickEditLoading}
-                  className="flex-1 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  loading={quickEditLoading}
+                  className="flex-1"
                 >
-                  {quickEditLoading && (
-                    <span className="inline-block w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  )}
                   Salvar
-                </button>
+                </Button>
               </div>
             </div>
           </div>

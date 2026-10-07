@@ -53,6 +53,14 @@ public class PaymentNote {
 	@JsonManagedReference
 	private List<PaymentNoteItem> items = new ArrayList<>();
 
+	@Setter
+	@Column(name = "created_by")
+	private Long createdBy;
+
+	@Setter
+	@Column(name = "updated_by")
+	private Long updatedBy;
+
 	public PaymentNote() {
 	}
 

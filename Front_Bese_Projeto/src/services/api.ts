@@ -16,11 +16,13 @@ import type {
   UserUpdateDto,
 } from '../types';
 import { formatDate, toApiDate } from '../lib/utils';
+import { logger } from '../lib/logger';
 
 // ── Instância ─────────────────────────────────────────────────────────────────
 
 export const api = axios.create({
-  baseURL: 'http://localhost:8080',
+  // Vem do .env (VITE_API_URL); sem ele, cai no backend local.
+  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
   withCredentials: true,
 });
 
@@ -36,31 +38,32 @@ export interface ApiResult<T> {
 function handleError<T>(error: unknown): ApiResult<T> {
   if (error instanceof AxiosError) {
     const status = error.response?.status ?? null;
+    // Mensagens fixas e amigáveis por status: o corpo cru do backend nunca
+    // chega à tela (evita vazar detalhe interno e tecnicês ao usuário).
+    // O detalhe técnico vai só para o log de desenvolvimento.
+    logger.error('[api] erro HTTP', { status, data: error.response?.data });
     if (status === 404) {
       return { data: null, status: 404, errorMessage: 'Registro não encontrado.' };
     }
     if (status === 400) {
-      // Tenta extrair mensagem de validação do backend
-      const rawMsg = error.response?.data?.message ?? error.response?.data;
-      let detail = 'Dados inválidos. Verifique os campos e tente novamente.';
-      if (typeof rawMsg === 'string' && rawMsg.trim().length > 0) {
-        detail = rawMsg;
-      } else if (typeof rawMsg === 'object' && rawMsg !== null) {
-        try {
-          detail = JSON.stringify(rawMsg);
-        } catch {
-          // fallback padrão
-        }
-      }
-      return { data: null, status: 400, errorMessage: detail };
+      return { data: null, status: 400, errorMessage: 'Dados inválidos. Verifique os campos e tente novamente.' };
+    }
+    if (status === 401) {
+      return { data: null, status: 401, errorMessage: 'Sessão expirada. Faça login novamente.' };
+    }
+    if (status === 403) {
+      return { data: null, status: 403, errorMessage: 'Você não tem permissão para esta ação.' };
+    }
+    if (status === 429) {
+      return { data: null, status: 429, errorMessage: 'Muitas tentativas. Aguarde um minuto e tente novamente.' };
     }
     if (status !== null && status >= 500) {
       return { data: null, status, errorMessage: 'Falha na comunicação com o servidor. Tente mais tarde.' };
     }
-    return { data: null, status, errorMessage: error.message };
+    return { data: null, status, errorMessage: 'Não foi possível concluir. Tente novamente.' };
   }
-  console.error('[api] erro inesperado', error);
-  return { data: null, status: null, errorMessage: 'Erro inesperado. Consulte o console.' };
+  logger.error('[api] erro inesperado', error);
+  return { data: null, status: null, errorMessage: 'Erro inesperado. Tente novamente.' };
 }
 
 // ── Paginação ─────────────────────────────────────────────────────────────────
@@ -147,7 +150,7 @@ export async function savePaymentEmpenho(dto: PaymentNoteEmpenhoDto): Promise<Ap
 }
 
 /**
- * PUT /API/PaymentEmpenho
+ * PUT /API/PaymentEmpenho/{id}
  * O Java PaymentNoteEmpenhoBasicDto usa os campos:
  *   paymentNoteBasicDto  → { numeroNp, dataLiquidacao }
  *   empenhoDto           → { numero, ano }
@@ -183,7 +186,7 @@ export async function updatePaymentEmpenho(
         : null,
       value: payload.value,
     };
-    const res = await api.put<PaymentNoteEmpenhoBasicDto>('/API/PaymentEmpenho', body);
+    const res = await api.put<PaymentNoteEmpenhoBasicDto>(`/API/PaymentEmpenho/${id}`, body);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -277,7 +280,7 @@ export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<Pa
 }
 
 /**
- * PUT /API/Np
+ * PUT /API/Np/{id}
  * Atualiza uma PaymentNote existente com items[].
  * Preserva IDs dos itens existentes para não criar duplicatas.
  */
@@ -296,7 +299,7 @@ export async function updatePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<
         ? { datePayment: formatDate(dto.datePayment) }
         : {}),
     };
-    const res = await api.put<PaymentNoteDto>('/API/Np', payload);
+    const res = await api.put<PaymentNoteDto>(`/API/Np/${dto.id}`, payload);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -332,7 +335,7 @@ export async function saveEmpenho(dto: EmpenhoDto): Promise<ApiResult<EmpenhoDto
 
 export async function updateEmpenho(dto: EmpenhoDto): Promise<ApiResult<EmpenhoDto>> {
   try {
-    const res = await api.put<EmpenhoDto>('/API/Empenho', dto);
+    const res = await api.put<EmpenhoDto>(`/API/Empenho/${dto.id}`, dto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -369,7 +372,7 @@ export async function saveFinancialPlanning(dto: FinancialPlanningDto): Promise<
 export async function updateFinancialPlanning(dto: FinancialPlanningDto): Promise<ApiResult<FinancialPlanningDto>> {
   try {
     const formattedDto = { ...dto, data: formatDate(dto.data) };
-    const res = await api.put<FinancialPlanningDto>('/API/FinancialPlanning', formattedDto);
+    const res = await api.put<FinancialPlanningDto>(`/API/FinancialPlanning/${dto.id}`, formattedDto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -406,7 +409,7 @@ export async function saveEmpresa(dto: EmpresaDto): Promise<ApiResult<EmpresaDto
 
 export async function updateEmpresa(dto: EmpresaDto): Promise<ApiResult<EmpresaDto>> {
   try {
-    const res = await api.put<EmpresaDto>('/API/Empresa', dto);
+    const res = await api.put<EmpresaDto>(`/API/Empresa/${dto.id}`, dto);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }

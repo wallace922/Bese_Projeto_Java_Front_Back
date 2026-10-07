@@ -34,13 +34,15 @@ export default function Busca() {
         <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
       </div>
 
+      {/* Abas sempre montadas (só ocultas): preserva filtros, página,
+          resultados e edição ao trocar de aba. */}
       <div className="px-3 sm:px-6 py-6">
-        {activeTab === 'empresa'           && <BuscaEmpresa />}
-        {activeTab === 'empenho'           && <BuscaEmpenho />}
-        {activeTab === 'financialPlanning' && <BuscaFinancialPlanning />}
-        {activeTab === 'paymentNote'       && <BuscaPaymentNote />}
-        {activeTab === 'taxRule'           && <BuscaTaxRule />}
-        {activeTab === 'darf'              && <BuscaDarf />}
+        <div className={activeTab === 'empresa' ? '' : 'hidden'}><BuscaEmpresa /></div>
+        <div className={activeTab === 'empenho' ? '' : 'hidden'}><BuscaEmpenho /></div>
+        <div className={activeTab === 'financialPlanning' ? '' : 'hidden'}><BuscaFinancialPlanning /></div>
+        <div className={activeTab === 'paymentNote' ? '' : 'hidden'}><BuscaPaymentNote /></div>
+        <div className={activeTab === 'taxRule' ? '' : 'hidden'}><BuscaTaxRule /></div>
+        <div className={activeTab === 'darf' ? '' : 'hidden'}><BuscaDarf /></div>
       </div>
     </PageShell>
   );

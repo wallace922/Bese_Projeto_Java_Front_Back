@@ -5,6 +5,7 @@ import com.bese.tesouraria.exception.BusinessRuleException;
 import com.bese.tesouraria.exception.EntityNotFoundException;
 import com.bese.tesouraria.repository.EmpresaRepository;
 import com.bese.tesouraria.repository.PaymentNoteRepository;
+import com.bese.tesouraria.security.CryptoService;
 import jakarta.persistence.EntityExistsException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,10 +18,13 @@ public class EmpresaService {
 
     private final EmpresaRepository empresaRepository;
     private final PaymentNoteRepository paymentNoteRepository;
+    private final CryptoService crypto;
 
-    public EmpresaService(EmpresaRepository empresaRepository, PaymentNoteRepository paymentNoteRepository) {
+    public EmpresaService(EmpresaRepository empresaRepository, PaymentNoteRepository paymentNoteRepository,
+            CryptoService crypto) {
         this.empresaRepository = empresaRepository;
         this.paymentNoteRepository = paymentNoteRepository;
+        this.crypto = crypto;
     }
 
     public Page<Empresa> findAll(int page, int size){
@@ -32,33 +36,69 @@ public class EmpresaService {
         if(empresa == null || empresa.getCnpj() == null || !empresa.isValidCnpj(empresa.getCnpj())){
              throw new BusinessRuleException("CNPJ inválido ou não fornecido.");
         }
-        if(empresaRepository.existsByCnpj(empresa.getCnpj())){
+        String digits = CryptoService.digits(empresa.getCnpj());
+        String hash = crypto.hmacHex(digits);
+        if (existsAny(empresa.getCnpj(), digits, hash)) {
             throw new EntityExistsException("CNPJ já cadastrado.");
         }
+        empresa.setCnpjHash(hash);
+        empresa.setCreatedBy(Audit.currentUserId());
+        empresa.setUpdatedBy(Audit.currentUserId());
         return empresaRepository.save(empresa);
     }
 
-    public Empresa update(Empresa empresa){
+    public Empresa update(Empresa empresa, Long pathId){
         if(empresa == null || empresa.getCnpj() == null || !empresa.isValidCnpj(empresa.getCnpj())){
              throw new BusinessRuleException("CNPJ inválido ou não fornecido.");
         }
-        if (!empresaRepository.existsByCnpj(empresa.getCnpj())) {
+        String digits = CryptoService.digits(empresa.getCnpj());
+        if (!existsAny(empresa.getCnpj(), digits, crypto.hmacHex(digits))) {
             throw new EntityNotFoundException("CNPJ não cadastrado.");
         }
 
-        empresa.setId(findyByCnpjId(empresa.getCnpj()));
+        Long resolvedId = findyByCnpjId(empresa.getCnpj());
+        Audit.requireIdMatch(resolvedId, pathId, "a Empresa");
+        empresa.setId(resolvedId);
+        empresa.setCnpjHash(crypto.hmacHex(CryptoService.digits(empresa.getCnpj())));
+        empresa.setUpdatedBy(Audit.currentUserId());
         return empresaRepository.save(empresa);
     }
 
     public Long findyByCnpjId(String cnpj){
-        Empresa empresa = empresaRepository.findByCnpj(cnpj)
-                .orElseThrow(() -> new EntityNotFoundException("Empresa com este CNPJ não encontrada."));
-        return empresa.getId();
+        return findyByCnpj(cnpj).getId();
     }
 
+    // Busca por índice cego (HMAC); com fallback para linha legada em claro,
+    // que é migrada (cifrada + hash) no primeiro uso.
+    @Transactional
     public Empresa findyByCnpj(String cnpj){
-        return empresaRepository.findByCnpj(cnpj)
+        String digits = CryptoService.digits(cnpj);
+        String hash = digits == null ? null : crypto.hmacHex(digits);
+        if (hash != null) {
+            var hit = empresaRepository.findByCnpjHash(hash);
+            if (hit.isPresent()) {
+                return hit.get();
+            }
+        }
+        Empresa legacy = empresaRepository.findByCnpjLegacy(cnpj)
+                .or(() -> digits == null ? java.util.Optional.empty() : empresaRepository.findByCnpjLegacy(digits))
                 .orElseThrow(() -> new EntityNotFoundException("Empresa com este CNPJ não encontrada."));
+        if (hash != null) {
+            legacy.setCnpjHash(hash);
+            return empresaRepository.save(legacy);
+        }
+        return legacy;
+    }
+
+    // Existe por hash OU em linha legada (clara, com ou sem formatação).
+    private boolean existsAny(String cnpj, String digits, String hash) {
+        if (hash != null && empresaRepository.existsByCnpjHash(hash)) {
+            return true;
+        }
+        if (cnpj != null && empresaRepository.findByCnpjLegacy(cnpj).isPresent()) {
+            return true;
+        }
+        return digits != null && empresaRepository.findByCnpjLegacy(digits).isPresent();
     }
 
     public Empresa findById(Long id){

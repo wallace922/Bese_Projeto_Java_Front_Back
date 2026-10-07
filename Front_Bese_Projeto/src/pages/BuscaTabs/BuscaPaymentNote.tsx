@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import Select from '../../components/Select';
-import Alert from '../../components/Alert';
+import EmptyState from '../../components/EmptyState';
 import EditIconButton from '../../components/EditIconButton';
 import PaginationControls from '../../components/PaginationControls';
 import ConfirmSaveModal from '../../components/ConfirmSaveModal';
@@ -12,13 +12,9 @@ import { findNpByNumeroEAno, getAllNp, updatePaymentNote, findEmpresaByCnpj } fr
 import type { PaymentNoteDto } from '../../types';
 import { toInputDate, formatCurrency, formatDate, parseBRCurrency } from '../../lib/utils';
 import { SectionTitle, TableContainer, applyCnpjMask } from './Shared';
+import StatusBadge from '../../components/StatusBadge';
 import { useEntitySearch } from '../../hooks/useEntitySearch';
-
-const NP_STATUS_STYLE: Record<PaymentNoteDto['status'], string> = {
-  PAGA:      'text-emerald-400 bg-emerald-900/30 border-emerald-700/50',
-  CANCELADA: 'text-red-400 bg-red-900/30 border-red-700/50',
-  A_PAGAR:   'text-amber-400 bg-amber-900/30 border-amber-700/50',
-};
+import { useToast } from '../../contexts/ToastContext';
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
@@ -40,6 +36,8 @@ export default function BuscaPaymentNote() {
   const [editItems, setEditItems] = useState<ItemEditState[]>([{ ...DEFAULT_ITEM }]);
   // Modal
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const { error: toastError } = useToast();
+  const [highlightId, setHighlightId] = useState<number | null>(null);
 
   const {
     loading: searching, error, setError,
@@ -48,8 +46,7 @@ export default function BuscaPaymentNote() {
     currentPage, totalPages, totalElements,
     found, setFound,
     editing, setEditing,
-    saving, saveError, setSaveError,
-    success, setSuccess,
+    saving,
     handleSearchRequest,
     handleGetAllRequest,
     handleNextPage,
@@ -92,20 +89,20 @@ export default function BuscaPaymentNote() {
   const openConfirm = () => {
     if (!found) return;
     const npNum = parseInt(numeroNp, 10);
-    if (isNaN(npNum)) { setSaveError('Nº NP inválido.'); return; }
-    if (!cnpjValid) { setSaveError('Valide o CNPJ antes de salvar.'); return; }
+    if (isNaN(npNum)) { toastError('Nº NP inválido.'); return; }
+    if (!cnpjValid) { toastError('Valide o CNPJ antes de salvar.'); return; }
     if (status === 'PAGA' && !datePayment) {
-      setSaveError('A Data de Pagamento é obrigatória quando o status é PAGA.');
+      toastError('A Data de Pagamento é obrigatória quando o status é PAGA.');
       return;
     }
     if (editItems.some(it => !it.value || isNaN(parseBRCurrency(it.value)) || parseBRCurrency(it.value) <= 0)) {
-      setSaveError('Todos os itens devem ter um valor válido maior que zero.'); return;
+      toastError('Todos os itens devem ter um valor válido maior que zero.'); return;
     }
     // Valida que todos os grupos NAO_OPTANTE com codEfd têm código de receita selecionado
     for (const it of editItems) {
       for (const g of it.taxGroups) {
         if (g.taxTipo === 'NAO_OPTANTE' && g.codEfd && g.codigoReceita == null) {
-          setSaveError(`Selecione o Código de Receita para o grupo com Cód. EFD ${g.codEfd}.`);
+          toastError(`Selecione o Código de Receita para o grupo com Cód. EFD ${g.codEfd}.`);
           return;
         }
       }
@@ -117,7 +114,7 @@ export default function BuscaPaymentNote() {
     setConfirmOpen(false);
     if (!found) return;
     const npNum = parseInt(numeroNp, 10);
-    if (isNaN(npNum)) { setSaveError('Nº NP inválido.'); return; }
+    if (isNaN(npNum)) { toastError('Nº NP inválido.'); return; }
     const payload: PaymentNoteDto = {
       ...found,
       numeroNp: npNum,
@@ -133,6 +130,10 @@ export default function BuscaPaymentNote() {
       'Payment Note atualizada!',
       () => handleGetAllRequest(getAllNp)
     );
+    if (found.id != null) {
+      setHighlightId(found.id);
+      window.setTimeout(() => setHighlightId(current => (current === found.id ? null : current)), 4000);
+    }
   };
 
   function handleCnpj(v: string) { setCnpj(applyCnpjMask(v)); setCnpjValid(null); setCnpjError(null); setEmpresaNome(''); }
@@ -159,7 +160,7 @@ export default function BuscaPaymentNote() {
           <Input label="Nº NP" type="number" placeholder="2024001" value={sNumero}
             onChange={(e) => { setSNumero(e.target.value); setError(null); setAllResults([]); setShowAll(false); }}
             onKeyDown={(e) => e.key === 'Enter' && (() => {
-              if (!sNumero || !sAno) { setError('Informe Nº NP e Ano.'); return; }
+              if (!sNumero || !sAno) { toastError('Informe Nº NP e Ano.'); return; }
               handleSearchRequest(() => findNpByNumeroEAno(parseInt(sNumero, 10), parseInt(sAno, 10)), handleEdit);
             })()}
             className="w-full sm:w-36" />
@@ -167,7 +168,7 @@ export default function BuscaPaymentNote() {
             onChange={(e) => { setSAno(e.target.value); setError(null); setAllResults([]); setShowAll(false); }}
             className="w-full sm:w-28" />
           <Button variant="ghost" size="md" loading={searching} onClick={() => {
-            if (!sNumero || !sAno) { setError('Informe Nº NP e Ano.'); return; }
+            if (!sNumero || !sAno) { toastError('Informe Nº NP e Ano.'); return; }
             handleSearchRequest(() => findNpByNumeroEAno(parseInt(sNumero, 10), parseInt(sAno, 10)), handleEdit);
           }}>🔍 Buscar</Button>
           <Button variant="ghost" size="md" loading={searching} onClick={() => handleGetAllRequest(getAllNp)}>
@@ -176,7 +177,14 @@ export default function BuscaPaymentNote() {
         </div>
       </div>
 
-      {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
+      {error && (
+        <EmptyState
+          title="Nenhum resultado"
+          hint={error}
+          actionLabel="Listar todas"
+          onAction={() => handleGetAllRequest(getAllNp)}
+        />
+      )}
 
       {/* ── Formulário de Edição ────────────────────────────────────────── */}
       {editing && found && (
@@ -270,8 +278,6 @@ export default function BuscaPaymentNote() {
             </Button>
             <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
           </div>
-          {saveError && <Alert variant="error" message={saveError} onClose={() => setSaveError(null)} />}
-          {success && <Alert variant="success" message={success} onClose={() => setSuccess(null)} />}
         </div>
       )}
 
@@ -300,16 +306,14 @@ export default function BuscaPaymentNote() {
                 {allResults.map((np, i) => {
                   const totalVal = np.value ?? np.items?.reduce((s, it) => s + it.value, 0) ?? 0;
                   return (
-                    <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
+                    <tr key={i} className={`border-b border-stone-800 hover:bg-stone-800/30 transition-colors ${highlightId != null && np.id === highlightId ? 'bg-amber-500/10 outline outline-1 outline-amber-500/50' : ''}`}>
                       <td className="py-2 pr-4 text-amber-300 font-mono">{np.numeroNp}</td>
                       <td className="py-2 pr-4 text-gray-300 whitespace-nowrap">{formatDate(np.dataLiquidacao)}</td>
                       <td className="py-2 pr-4 text-gray-300 text-xs">{np.empresa?.nome ?? '—'}</td>
                       <td className="py-2 pr-4 text-gray-200 font-mono text-xs">{formatCurrency(totalVal)}</td>
                       <td className="py-2 pr-4">
                         <div className="space-y-0.5">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider ${NP_STATUS_STYLE[np.status]}`}>
-                            {np.status.replace('_', ' ')}
-                          </span>
+                          <StatusBadge status={np.status} />
                           {np.status === 'PAGA' && np.datePayment && (
                             <div className="text-[10px] text-emerald-400/70 font-mono">pago em {formatDate(np.datePayment)}</div>
                           )}

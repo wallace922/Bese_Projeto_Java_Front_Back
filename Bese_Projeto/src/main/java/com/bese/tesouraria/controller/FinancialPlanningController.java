@@ -56,13 +56,14 @@ public class FinancialPlanningController {
         return ResponseEntity.status(201).body(mapper.toDto(financialPlanning));
     }
 
-    @PutMapping
+    @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<FinancialPlanningBasicDto> update(
+            @NotNull @PathVariable Long id,
             @Valid @RequestBody FinancialPlanningBasicDto financialPlanningBasicDto,
             HttpServletRequest request) {
         FinancialPlanning financialPlanning = financialPlanningService
-                .update(mapper.toEntity(financialPlanningBasicDto));
+                .update(mapper.toEntity(financialPlanningBasicDto), id);
         log.info("AUDIT_FINANCIAL_PLANNING_UPDATED | planningId={} | numero={} | ip={}", financialPlanning.getId(),
                 financialPlanning.getNumero(), request.getRemoteAddr());
         return ResponseEntity.status(202).body(mapper.toDto(financialPlanning));

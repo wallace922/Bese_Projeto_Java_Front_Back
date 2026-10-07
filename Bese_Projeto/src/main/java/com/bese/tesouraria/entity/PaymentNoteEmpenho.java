@@ -1,5 +1,6 @@
 package com.bese.tesouraria.entity;
 
+import com.bese.tesouraria.exception.BusinessRuleException;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -33,12 +34,18 @@ public class PaymentNoteEmpenho {
 
     private BigDecimal value;
 
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "updated_by")
+    private Long updatedBy;
+
     public PaymentNoteEmpenho() {
     }
 
     public void setValue(BigDecimal value) {
         if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new NullPointerException();
+            throw new BusinessRuleException("O valor da vinculação deve ser maior que zero.");
         }
         this.value = value;
     }

@@ -33,13 +33,287 @@ html {
   }
 }
 
-/* ── Tema Claro (Light Mode) ── */
+/* ── Tema Claro (Light Mode) ──
+   Tema real por mapeamento de paleta (sem filter:invert, que quebrava
+   fotos, modais, sombras e position:fixed). O toggle em PageShell só
+   alterna a classe `theme-light` no <html>; todo o resto é CSS puro aqui,
+   então nenhuma tela precisa de alteração. */
+
+/* Base */
 html.theme-light {
-  filter: invert(1) hue-rotate(180deg);
-  background-color: white; /* Define explicitamente o fundo para evitar bordas pretas */
+  background-color: #f4f1ea;
+}
+html.theme-light body {
+  background-color: #f4f1ea;
+}
+html.theme-light .brasao-bg {
+  opacity: 0.08;
+}
+html.theme-light ::-webkit-scrollbar-track {
+  background: #e7e5e4;
+}
+html.theme-light ::-webkit-scrollbar-thumb {
+  background: #d6d3d1;
 }
 
-html.theme-light img, 
-html.theme-light .no-invert {
-  filter: invert(1) hue-rotate(180deg);
+/* Superfícies estruturais */
+html.theme-light .bg-military-950 {
+  background-color: #f4f1ea;
+}
+html.theme-light .glass-panel {
+  background-color: rgba(255, 255, 255, 0.8);
+  border-color: #e7e5e4;
+  box-shadow: 0 1px 3px rgba(28, 25, 23, 0.08);
+}
+html.theme-light .bg-black {
+  background-color: #f4f1ea;
+}
+html.theme-light .bg-black\/20 {
+  background-color: #e7e5e4;
+}
+html.theme-light .bg-black\/30 {
+  background-color: #f5f5f4;
+}
+html.theme-light .bg-black\/40,
+html.theme-light .bg-black\/60,
+html.theme-light .bg-black\/80,
+html.theme-light .bg-black\/90 {
+  background-color: #ffffff;
+}
+html.theme-light .bg-white\/5,
+html.theme-light .bg-white\/10 {
+  background-color: #ffffff;
+}
+html.theme-light .hover\:bg-black\/40:hover,
+html.theme-light .hover\:bg-black\/80:hover,
+html.theme-light .hover\:bg-white\/5:hover,
+html.theme-light .hover\:bg-white\/10:hover {
+  background-color: #f5f5f4;
+}
+html.theme-light .focus\:bg-white\/10:focus {
+  background-color: #ffffff;
+}
+
+/* Bordas claras (branco translúcido -> stone) */
+html.theme-light .border-white\/5,
+html.theme-light .border-white\/8,
+html.theme-light .border-white\/10,
+html.theme-light .border-white\/15 {
+  border-color: #e7e5e4;
+}
+html.theme-light .border-white\/20,
+html.theme-light .border-white\/30,
+html.theme-light .border-white {
+  border-color: #d6d3d1;
+}
+html.theme-light .border-white\/40 {
+  border-color: #a8a29e;
+}
+html.theme-light .hover\:border-white\/20:hover,
+html.theme-light .hover\:border-white\/30:hover,
+html.theme-light .hover\:border-white\/40:hover {
+  border-color: #a8a29e;
+}
+html.theme-light .divide-white\/5 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e7e5e4;
+}
+html.theme-light .ring-white\/20 {
+  --tw-ring-color: #d6d3d1;
+}
+
+/* Textos claros -> escuros */
+html.theme-light .text-stone-200,
+html.theme-light .hover\:text-stone-200:hover {
+  color: #44403c;
+}
+html.theme-light .text-stone-300,
+html.theme-light .hover\:text-stone-300:hover,
+html.theme-light .hover\:text-gray-200:hover {
+  color: #57534e;
+}
+html.theme-light .text-stone-400,
+html.theme-light .text-stone-500,
+html.theme-light .text-gray-300,
+html.theme-light .text-gray-400 {
+  color: #57534e;
+}
+html.theme-light .text-stone-600 {
+  color: #44403c;
+}
+html.theme-light .text-gray-100,
+html.theme-light .text-white {
+  color: #1c1917;
+}
+html.theme-light .text-gray-200 {
+  color: #292524;
+}
+html.theme-light .placeholder-stone-500::placeholder,
+html.theme-light .placeholder-stone-600::placeholder {
+  color: #a8a29e;
+}
+
+/* Âmbar: texto precisa escurecer no fundo claro (botões amber c/ texto escuro já funcionam) */
+html.theme-light .text-amber-200,
+html.theme-light .text-amber-200\/80,
+html.theme-light .hover\:text-amber-200:hover {
+  color: #92400e;
+}
+html.theme-light .text-amber-300,
+html.theme-light .text-amber-300\/80,
+html.theme-light .text-amber-400,
+html.theme-light .text-amber-400\/80,
+html.theme-light .text-amber-500,
+html.theme-light .text-amber-500\/70,
+html.theme-light .hover\:text-amber-300:hover,
+html.theme-light .hover\:text-amber-400:hover {
+  color: #b45309;
+}
+html.theme-light .text-amber-500\/50 {
+  color: #92400e;
+}
+
+/* Badges/toasts de status: fundo pastel + texto escuro */
+html.theme-light .text-emerald-200,
+html.theme-light .text-emerald-300,
+html.theme-light .text-emerald-400,
+html.theme-light .text-emerald-400\/70,
+html.theme-light .text-emerald-400\/80 {
+  color: #047857;
+}
+html.theme-light .text-emerald-500 {
+  color: #059669;
+}
+html.theme-light .bg-emerald-950\/95,
+html.theme-light .bg-emerald-950\/30,
+html.theme-light .bg-emerald-900\/20,
+html.theme-light .bg-emerald-900\/30,
+html.theme-light .bg-emerald-900\/50,
+html.theme-light .bg-emerald-900\/60 {
+  background-color: #d1fae5;
+}
+html.theme-light .border-emerald-700,
+html.theme-light .border-emerald-700\/50 {
+  border-color: #6ee7b7;
+}
+html.theme-light .text-red-200,
+html.theme-light .text-red-300,
+html.theme-light .hover\:text-red-300:hover {
+  color: #b91c1c;
+}
+html.theme-light .text-red-400,
+html.theme-light .text-red-400\/70 {
+  color: #dc2626;
+}
+html.theme-light .bg-red-950\/95,
+html.theme-light .bg-red-900\/20,
+html.theme-light .bg-red-900\/50,
+html.theme-light .bg-red-900\/60 {
+  background-color: #fee2e2;
+}
+html.theme-light .border-red-700,
+html.theme-light .border-red-700\/30,
+html.theme-light .border-red-700\/40 {
+  border-color: #fca5a5;
+}
+html.theme-light .border-red-600 {
+  border-color: #f87171;
+}
+html.theme-light .border-red-500\/20,
+html.theme-light .border-red-500\/30,
+html.theme-light .border-red-500\/40,
+html.theme-light .border-red-500\/60 {
+  border-color: #fca5a5;
+}
+/* Botão danger: mantém texto branco sobre vermelho */
+html.theme-light .bg-red-800 {
+  color: #ffffff;
+}
+html.theme-light .text-sky-200,
+html.theme-light .text-sky-300 {
+  color: #075985;
+}
+html.theme-light .text-sky-400,
+html.theme-light .text-sky-500\/70 {
+  color: #0284c7;
+}
+html.theme-light .bg-sky-950\/95,
+html.theme-light .bg-sky-900\/50 {
+  background-color: #e0f2fe;
+}
+html.theme-light .border-sky-700 {
+  border-color: #7dd3fc;
+}
+html.theme-light .text-blue-400 {
+  color: #1d4ed8;
+}
+html.theme-light .bg-blue-500\/20 {
+  background-color: #dbeafe;
+}
+html.theme-light .border-blue-500\/40 {
+  border-color: #93c5fd;
+}
+html.theme-light .bg-amber-950\/30,
+html.theme-light .bg-amber-950\/40,
+html.theme-light .bg-amber-900\/20,
+html.theme-light .bg-amber-900\/30,
+html.theme-light .bg-amber-900\/50,
+html.theme-light .bg-amber-900\/60,
+html.theme-light .bg-amber-500\/5,
+html.theme-light .bg-amber-500\/10,
+html.theme-light .bg-amber-500\/20 {
+  background-color: #fef3c7;
+}
+html.theme-light .hover\:bg-amber-800\/30:hover,
+html.theme-light .hover\:bg-amber-500\/10:hover {
+  background-color: #fde68a;
+}
+html.theme-light .border-amber-600,
+html.theme-light .border-amber-600\/30,
+html.theme-light .border-amber-600\/40,
+html.theme-light .border-amber-600\/50,
+html.theme-light .hover\:border-stone-500:hover {
+  border-color: #a8a29e;
+}
+html.theme-light .border-amber-700,
+html.theme-light .border-amber-700\/20,
+html.theme-light .border-amber-700\/30,
+html.theme-light .border-amber-700\/50 {
+  border-color: #f59e0b;
+}
+
+/* Botões ghost (transparentes no escuro): fundo sólido no tema claro */
+html.theme-light [data-variant="ghost"] {
+  background-color: #ffffff;
+  border-color: #d6d3d1;
+  color: #92400e;
+}
+html.theme-light [data-variant="ghost"]:hover:not(:disabled) {
+  background-color: #f5f5f4;
+  border-color: #a8a29e;
+}
+
+/* Tabelas e listas */
+html.theme-light .border-stone-800,
+html.theme-light .border-stone-800\/50,
+html.theme-light .border-stone-700,
+html.theme-light .border-stone-700\/50,
+html.theme-light .border-stone-700\/60 {
+  border-color: #e7e5e4;
+}
+html.theme-light .hover\:bg-stone-800\/20:hover,
+html.theme-light .hover\:bg-stone-800\/30:hover {
+  background-color: #f5f5f4;
+}
+html.theme-light .bg-stone-800,
+html.theme-light .bg-stone-800\/20,
+html.theme-light .bg-stone-800\/30,
+html.theme-light .bg-stone-800\/40,
+html.theme-light .bg-stone-950 {
+  background-color: #f5f5f4;
+}
+html.theme-light .bg-stone-900\/20,
+html.theme-light .bg-stone-900\/30,
+html.theme-light .bg-stone-900\/40,
+html.theme-light .bg-stone-900\/60 {
+  background-color: #fafaf9;
 }

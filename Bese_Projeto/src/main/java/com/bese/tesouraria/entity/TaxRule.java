@@ -46,6 +46,12 @@ public class TaxRule {
     @Column(name = "items", nullable = false, columnDefinition = "JSON")
     private List<TaxRuleItem> items;
 
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "updated_by")
+    private Long updatedBy;
+
     public TaxRule() {}
 
     public TaxRule(Integer codEfd, Integer codigoReceita, String description, List<TaxRuleItem> items, LocalDate dataInicioVigencia) {

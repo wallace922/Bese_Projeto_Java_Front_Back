@@ -4,6 +4,7 @@ import com.bese.tesouraria.entity.User;
 import com.bese.tesouraria.exception.BusinessRuleException;
 import com.bese.tesouraria.exception.EntityNotFoundException;
 import com.bese.tesouraria.repository.UserRepository;
+import com.bese.tesouraria.security.CryptoService;
 
 import jakarta.persistence.EntityExistsException;
 
@@ -20,9 +21,11 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CryptoService crypto;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, CryptoService crypto) {
         this.userRepository = userRepository;
+        this.crypto = crypto;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -31,8 +34,24 @@ public class UserService {
         return userRepository.findAllByOrderByIdDesc(pageable);
     }
 
+    // Busca por índice cego (HMAC); com fallback para linha legada em claro,
+    // que é migrada (cifrada + hash) no primeiro uso.
+    @Transactional
     public User findByCpf(String cpf) {
-        return userRepository.findByCpf(cpf).orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
+        String digits = CryptoService.digits(cpf);
+        if (digits == null || digits.isBlank()) {
+            throw new EntityNotFoundException("Usuário não encontrado");
+        }
+        String hash = crypto.hmacHex(digits);
+        return userRepository.findByCpfHash(hash)
+                .orElseGet(() -> upgradeLegacyRow(digits, hash));
+    }
+
+    private User upgradeLegacyRow(String digits, String hash) {
+        User legacy = userRepository.findByCpfLegacy(digits)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
+        legacy.setCpfHash(hash);
+        return userRepository.save(legacy);
     }
 
     public User findById(Long id) {
@@ -40,9 +59,15 @@ public class UserService {
     }
 
     public User save(User user) {
-        if (userRepository.findByCpf(user.getCpf()).isPresent()) {
+        String digits = CryptoService.digits(user.getCpf());
+        if (digits == null || digits.isBlank()) {
+            throw new BusinessRuleException("CPF inválido ou não fornecido.");
+        }
+        String hash = crypto.hmacHex(digits);
+        if (userRepository.existsByCpfHash(hash) || userRepository.findByCpfLegacy(digits).isPresent()) {
             throw new EntityExistsException("Usuário já cadastrado com este CPF");
         }
+        user.setCpfHash(hash);
         String encodedPassword = passwordEncoder.encode(user.getPassword());
         user.setPassword(encodedPassword);
         return userRepository.save(user);
@@ -75,8 +100,13 @@ public class UserService {
     }
 
     public User autenticar(String cpf, String rawPassword) {
-        User user = userRepository.findByCpf(cpf)
-                .orElseThrow(() -> new BusinessRuleException("CPF ou senha inválidos"));
+        final User user;
+        try {
+            user = findByCpf(cpf);
+        } catch (EntityNotFoundException e) {
+            // Mensagem genérica de propósito: não revelar se o CPF existe.
+            throw new BusinessRuleException("CPF ou senha inválidos");
+        }
 
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
             throw new BusinessRuleException("CPF ou senha inválidos");

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { Role } from '../types';
 import { api } from '../services/api';
+import { logger } from '../lib/logger';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await api.post('/API/User/logout');
     } catch (error) {
-      console.error('Erro ao fazer logout', error);
+      logger.error('Erro ao fazer logout', error);
     } finally {
       setIsAuthenticated(false);
       setUser(null);

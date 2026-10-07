@@ -29,6 +29,12 @@ public class Empenho {
 	@Column(name = "Nature")
 	private Integer nature;
 
+	@Column(name = "created_by")
+	private Long createdBy;
+
+	@Column(name = "updated_by")
+	private Long updatedBy;
+
 	public Empenho() {
 	}
 

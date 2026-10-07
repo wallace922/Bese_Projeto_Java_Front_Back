@@ -76,15 +76,20 @@ public class PaymentNoteService {
             total = total.add(item.getValue());
         }
         paymentNote.setValue(total);
+        paymentNote.setCreatedBy(Audit.currentUserId());
+        paymentNote.setUpdatedBy(Audit.currentUserId());
 
         return paymentNoteRepository.save(paymentNote);
     }
 
     @Transactional
-    public PaymentNote updateNp(PaymentNote paymentNoteFromRequest) {
+    public PaymentNote updateNp(PaymentNote paymentNoteFromRequest, Long pathId) {
         PaymentNote existing = findByNumeroNpForYear(
                 paymentNoteFromRequest.getNumeroNp(),
                 paymentNoteFromRequest.getDataLiquidacao().getYear());
+
+        // O registro da chave natural (número+ano) precisa ser o mesmo da URL.
+        Audit.requireIdMatch(existing.getId(), pathId, "a Nota de Pagamento");
 
         validarCnpj(paymentNoteFromRequest);
         validarDataPagamento(paymentNoteFromRequest);
@@ -117,6 +122,7 @@ public class PaymentNoteService {
             total = total.add(item.getValue());
         }
         existing.setValue(total);
+        existing.setUpdatedBy(Audit.currentUserId());
 
         return paymentNoteRepository.save(existing);
     }

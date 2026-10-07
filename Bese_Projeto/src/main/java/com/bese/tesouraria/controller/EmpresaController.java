@@ -51,10 +51,10 @@ public class EmpresaController {
         return ResponseEntity.status(201).body(mapper.toDto(empresa));
     }
 
-    @PutMapping
+    @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<EmpresaDto> update(@Valid @RequestBody EmpresaDto empresaDto, HttpServletRequest request) {
-        Empresa empresa = empresaService.update(mapper.toEntity(empresaDto));
+    public ResponseEntity<EmpresaDto> update(@NotNull @PathVariable Long id, @Valid @RequestBody EmpresaDto empresaDto, HttpServletRequest request) {
+        Empresa empresa = empresaService.update(mapper.toEntity(empresaDto), id);
         log.info("AUDIT_EMPRESA_UPDATED | empresaId={} | cnpj={} | ip={}", empresa.getId(), empresa.getCnpj(), request.getRemoteAddr());
         return ResponseEntity.status(202).body(mapper.toDto(empresa));
     }

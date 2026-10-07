@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { ApiResult, PaginatedResponse } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 
 export function useEntitySearch<T>() {
+  const { success: toastSuccess, error: toastError } = useToast();
   const [pageSize] = useState(50);
 
   // Search state
@@ -48,7 +50,9 @@ export function useEntitySearch<T>() {
       if (onSuccess) onSuccess(res.data);
       else setFound(res.data);
     } else {
-      setError(res.errorMessage ?? 'Registro não encontrado.');
+      const msg = res.errorMessage ?? 'Registro não encontrado.';
+      setError(msg);
+      toastError(msg);
     }
     setLoading(false);
   };
@@ -67,7 +71,9 @@ export function useEntitySearch<T>() {
       setCurrentPage(res.data.pageNumber);
       setShowAll(true);
     } else {
-      setError('Nenhum registro encontrado.');
+      const msg = 'Nenhum registro encontrado.';
+      setError(msg);
+      toastError(msg);
     }
     setLoading(false);
   };
@@ -120,11 +126,14 @@ export function useEntitySearch<T>() {
     const res = await request();
     if (res.data) {
       setSuccess(successMessage);
+      toastSuccess(successMessage);
       setTimeout(() => setSuccess(null), 3000);
       setEditing(false);
       if (showAll && onSuccessCallback) onSuccessCallback();
     } else {
-      setSaveError(res.errorMessage || 'Erro ao atualizar.');
+      const msg = res.errorMessage || 'Erro ao atualizar.';
+      setSaveError(msg);
+      toastError(msg);
     }
     setSaving(false);
   };

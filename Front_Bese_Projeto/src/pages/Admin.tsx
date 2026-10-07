@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import PageShell from '../components/PageShell';
 import ConfirmModal from '../components/ConfirmModal';
+import PaginationControls from '../components/PaginationControls';
 import {
   getAllUsers,
   getUserByCpf,
@@ -10,6 +11,10 @@ import {
 } from '../services/api';
 import type { UserDto, UserCreateDto, UserUpdateDto, Role } from '../types';
 import type { PageDto } from '../services/api';
+import { maskCpf } from '../lib/utils';
+import Button from '../components/Button';
+import EmptyState from '../components/EmptyState';
+import { useToast } from '../contexts/ToastContext';
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
@@ -64,6 +69,8 @@ export default function Admin() {
 // ── Tab: Listar Usuários ───────────────────────────────────────────────────────
 
 function UserListTab() {
+  const { success: toastSuccess, error: toastError } = useToast();
+  const [highlightId, setHighlightId] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [data, setData] = useState<PageDto<UserDto> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -72,7 +79,6 @@ function UserListTab() {
   const [editingUser, setEditingUser] = useState<UserDto | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<UserDto | null>(null);
   const [deletingUser, setDeletingUser] = useState(false);
-  const [actionMsg, setActionMsg] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
 
   const load = async (p = page) => {
     setLoading(true);
@@ -80,7 +86,11 @@ function UserListTab() {
     const res = await getAllUsers(p, 10);
     setLoading(false);
     if (res.data) setData(res.data);
-    else setError(res.errorMessage ?? 'Erro ao carregar usuários.');
+    else {
+      const msg = res.errorMessage ?? 'Erro ao carregar usuários.';
+      setError(msg);
+      toastError(msg);
+    }
   };
 
   useEffect(() => { load(); }, [page]);
@@ -91,12 +101,11 @@ function UserListTab() {
     setDeletingUser(false);
     setConfirmDelete(null);
     if (res.status === 204 || res.status === 200) {
-      setActionMsg({ type: 'ok', msg: `Usuário "${user.name}" removido com sucesso.` });
+      toastSuccess(`Usuário "${user.name}" removido com sucesso.`);
       load();
     } else {
-      setActionMsg({ type: 'err', msg: res.errorMessage ?? 'Erro ao remover usuário.' });
+      toastError(res.errorMessage ?? 'Erro ao remover usuário.');
     }
-    setTimeout(() => setActionMsg(null), 3500);
   };
 
   const roleBadge = (role: Role) => {
@@ -113,14 +122,15 @@ function UserListTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      {actionMsg && (
-        <div className={`px-4 py-2 rounded-lg text-xs font-semibold border ${actionMsg.type === 'ok' ? 'bg-green-900/20 text-green-400 border-green-500/20' : 'bg-red-900/20 text-red-400 border-red-500/20'}`}>
-          {actionMsg.msg}
-        </div>
-      )}
-
       {loading && <p className="text-stone-500 text-sm">Carregando...</p>}
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && (
+        <EmptyState
+          title="Não foi possível carregar"
+          hint={error}
+          actionLabel="Tentar de novo"
+          onAction={() => load()}
+        />
+      )}
 
       {data && (
         <>
@@ -139,27 +149,29 @@ function UserListTab() {
                 {data.content.map((u, i) => (
                   <tr
                     key={u.id}
-                    className={`border-b border-white/5 transition-colors hover:bg-white/5 ${i % 2 === 0 ? 'bg-black/20' : ''}`}
+                    className={`border-b border-white/5 transition-colors hover:bg-white/5 ${i % 2 === 0 ? 'bg-black/20' : ''} ${highlightId != null && u.id === highlightId ? 'bg-amber-500/10 outline outline-1 outline-amber-500/50' : ''}`}
                   >
                     <td className="px-4 py-3 text-stone-500 font-mono">{u.id}</td>
                     <td className="px-4 py-3 text-gray-200 font-semibold">{u.name}</td>
-                    <td className="px-4 py-3 text-stone-400 font-mono">{u.cpf}</td>
+                    <td className="px-4 py-3 text-stone-400 font-mono">{maskCpf(u.cpf)}</td>
                     <td className="px-4 py-3">{roleBadge(u.role)}</td>
                     <td className="px-4 py-3 flex items-center justify-center gap-2">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         id={`edit-user-${u.id}`}
                         onClick={() => setEditingUser(u)}
-                        className="px-3 py-1 text-xs font-bold uppercase tracking-widest rounded border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 transition-colors"
                       >
                         Editar
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
                         id={`delete-user-${u.id}`}
                         onClick={() => setConfirmDelete(u)}
-                        className="px-3 py-1 text-xs font-bold uppercase tracking-widest rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors"
                       >
                         Excluir
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -168,26 +180,15 @@ function UserListTab() {
           </div>
 
           {/* Paginação */}
-          <div className="flex items-center justify-between text-xs text-stone-500">
-            <span>Total: {data.totalElements} usuários</span>
-            <div className="flex gap-2">
-              <button
-                disabled={page === 0}
-                onClick={() => setPage(p => p - 1)}
-                className="px-3 py-1 rounded border border-white/10 hover:border-white/30 disabled:opacity-30 transition-colors"
-              >
-                ← Anterior
-              </button>
-              <span className="px-3 py-1">Pág. {page + 1} / {data.totalPages}</span>
-              <button
-                disabled={data.isLast}
-                onClick={() => setPage(p => p + 1)}
-                className="px-3 py-1 rounded border border-white/10 hover:border-white/30 disabled:opacity-30 transition-colors"
-              >
-                Próxima →
-              </button>
-            </div>
-          </div>
+          <PaginationControls
+            currentPage={page}
+            totalPages={data.totalPages}
+            totalElements={data.totalElements}
+            loading={loading}
+            onPrevious={() => setPage(p => Math.max(0, p - 1))}
+            onNext={() => setPage(p => p + 1)}
+            onGoToPage={(p) => setPage(p)}
+          />
         </>
       )}
 
@@ -196,7 +197,15 @@ function UserListTab() {
         <UserEditModal
           user={editingUser}
           onClose={() => setEditingUser(null)}
-          onSuccess={() => { setEditingUser(null); load(); }}
+          onSuccess={() => {
+            if (editingUser.id != null) {
+              const savedId = editingUser.id;
+              setHighlightId(savedId);
+              window.setTimeout(() => setHighlightId(current => (current === savedId ? null : current)), 4000);
+            }
+            setEditingUser(null);
+            load();
+          }}
         />
       )}
 
@@ -217,6 +226,7 @@ function UserListTab() {
 // ── Tab: Criar Usuário ────────────────────────────────────────────────────────
 
 function UserCreateTab({ onSuccess }: { onSuccess: () => void }) {
+  const { success: toastSuccess, error: toastError } = useToast();
   const [form, setForm] = useState<UserCreateDto>({ name: '', cpf: '', password: '', role: 'USER' });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -228,11 +238,15 @@ function UserCreateTab({ onSuccess }: { onSuccess: () => void }) {
     const res = await createUser(form);
     setLoading(false);
     if (res.data) {
-      setMsg({ type: 'ok', text: `Usuário "${res.data.name}" criado com sucesso!` });
+      const okMsg = `Usuário "${res.data.name}" criado com sucesso!`;
+      setMsg({ type: 'ok', text: okMsg });
+      toastSuccess(okMsg);
       setForm({ name: '', cpf: '', password: '', role: 'USER' });
       setTimeout(onSuccess, 1500);
     } else {
-      setMsg({ type: 'err', text: res.errorMessage ?? 'Erro ao criar usuário.' });
+      const errMsg = res.errorMessage ?? 'Erro ao criar usuário.';
+      setMsg({ type: 'err', text: errMsg });
+      toastError(errMsg);
     }
   };
 
@@ -249,14 +263,14 @@ function UserCreateTab({ onSuccess }: { onSuccess: () => void }) {
         </div>
       )}
 
-      <button
+      <Button
         id="create-user-submit"
         type="submit"
-        disabled={loading}
-        className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-black uppercase tracking-widest text-sm transition-all disabled:opacity-50"
+        loading={loading}
+        className="w-full"
       >
         {loading ? 'Criando...' : 'Criar Usuário'}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -264,6 +278,7 @@ function UserCreateTab({ onSuccess }: { onSuccess: () => void }) {
 // ── Tab: Buscar por CPF ───────────────────────────────────────────────────────
 
 function UserSearchTab() {
+  const { error: toastError } = useToast();
   const [cpf, setCpf] = useState('');
   const [result, setResult] = useState<UserDto | null>(null);
   const [loading, setLoading] = useState(false);
@@ -278,7 +293,11 @@ function UserSearchTab() {
     const res = await getUserByCpf(cpf.trim());
     setLoading(false);
     if (res.data) setResult(res.data);
-    else setError(res.errorMessage ?? 'Usuário não encontrado.');
+    else {
+      const msg = res.errorMessage ?? 'Usuário não encontrado.';
+      setError(msg);
+      toastError(msg);
+    }
   };
 
   return (
@@ -292,23 +311,27 @@ function UserSearchTab() {
           placeholder="CPF do usuário"
           className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-200 placeholder-stone-600 text-sm focus:outline-none focus:border-amber-500/60 transition-all"
         />
-        <button
+        <Button
           id="search-cpf-submit"
           type="submit"
-          disabled={loading}
-          className="px-5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-black text-sm uppercase tracking-widest transition-all disabled:opacity-50"
+          loading={loading}
         >
           Buscar
-        </button>
+        </Button>
       </form>
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && (
+        <EmptyState
+          title="Usuário não encontrado"
+          hint={error}
+        />
+      )}
 
       {result && (
         <div className="rounded-xl border border-white/10 bg-black/20 p-5 flex flex-col gap-2">
           <p className="text-xs text-stone-500 uppercase tracking-widest">Resultado</p>
           <p className="text-gray-200 font-bold text-lg">{result.name}</p>
-          <p className="text-stone-400 font-mono text-sm">CPF: {result.cpf}</p>
+          <p className="text-stone-400 font-mono text-sm">CPF: {maskCpf(result.cpf)}</p>
           <p className="text-stone-400 text-sm">ID: {result.id}</p>
           <span className={`text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded border w-fit ${result.role === 'ADMIN' ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-blue-500/20 text-blue-400 border-blue-500/40'}`}>
             {result.role}
@@ -322,6 +345,7 @@ function UserSearchTab() {
 // ── Modal de Edição ───────────────────────────────────────────────────────────
 
 function UserEditModal({ user, onClose, onSuccess }: { user: UserDto; onClose: () => void; onSuccess: () => void }) {
+  const { success: toastSuccess, error: toastError } = useToast();
   const [form, setForm] = useState<UserUpdateDto>({ name: user.name, password: '', role: user.role });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -334,8 +358,14 @@ function UserEditModal({ user, onClose, onSuccess }: { user: UserDto; onClose: (
     if (form.password && form.password.trim()) payload.password = form.password;
     const res = await updateUser(user.id, payload);
     setLoading(false);
-    if (res.data) onSuccess();
-    else setError(res.errorMessage ?? 'Erro ao atualizar usuário.');
+    if (res.data) {
+      toastSuccess(`Usuário "${user.name}" atualizado com sucesso!`);
+      onSuccess();
+    } else {
+      const msg = res.errorMessage ?? 'Erro ao atualizar usuário.';
+      setError(msg);
+      toastError(msg);
+    }
   };
 
   return (
@@ -346,7 +376,7 @@ function UserEditModal({ user, onClose, onSuccess }: { user: UserDto; onClose: (
           <h3 className="text-amber-400 font-black uppercase tracking-widest text-sm">Editar Usuário</h3>
           <button onClick={onClose} className="text-stone-500 hover:text-stone-300 transition-colors">✕</button>
         </div>
-        <p className="text-stone-500 text-xs">ID: {user.id} | CPF: {user.cpf}</p>
+        <p className="text-stone-500 text-xs">ID: {user.id} | CPF: {maskCpf(user.cpf)}</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <FormField id="edit-name" label="Nome" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} />
@@ -356,17 +386,22 @@ function UserEditModal({ user, onClose, onSuccess }: { user: UserDto; onClose: (
           {error && <p className="text-red-400 text-xs">{error}</p>}
 
           <div className="flex gap-2 mt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-white/10 text-stone-400 text-xs font-bold uppercase tracking-widest hover:border-white/30 transition-colors">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              className="flex-1"
+            >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               id="edit-user-submit"
               type="submit"
-              disabled={loading}
-              className="flex-1 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
+              loading={loading}
+              className="flex-1"
             >
               {loading ? 'Salvando...' : 'Salvar'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

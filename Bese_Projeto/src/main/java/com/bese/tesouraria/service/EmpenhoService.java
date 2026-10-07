@@ -33,16 +33,20 @@ public class EmpenhoService {
 		if(empRepository.existsByNumeroAndAno(emp.getNumero(), emp.getAno())){
 			throw new EntityExistsException("Empenho já cadastrado com este número e ano.");
 		}
+        emp.setCreatedBy(Audit.currentUserId());
+        emp.setUpdatedBy(Audit.currentUserId());
         return empRepository.save(emp);
 	}
 
     @Transactional
-    public Empenho update(Empenho empenhoFromRequest){
+    public Empenho update(Empenho empenhoFromRequest, Long pathId){
         Empenho empenhoToUpdate = findByNumeroAndAno(empenhoFromRequest.getNumero(), empenhoFromRequest.getAno());
+        Audit.requireIdMatch(empenhoToUpdate.getId(), pathId, "o Empenho");
 
         empenhoToUpdate.setInternalPlan(empenhoFromRequest.getInternalPlan());
         empenhoToUpdate.setNature(empenhoFromRequest.getNature());
         empenhoToUpdate.setFontDeOrigin(empenhoFromRequest.getFontDeOrigin());
+        empenhoToUpdate.setUpdatedBy(Audit.currentUserId());
 
 		return empRepository.save(empenhoToUpdate);
     }

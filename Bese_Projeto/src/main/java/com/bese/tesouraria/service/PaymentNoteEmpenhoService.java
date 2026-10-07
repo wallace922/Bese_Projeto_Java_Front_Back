@@ -66,15 +66,18 @@ public class PaymentNoteEmpenhoService {
             paymentNoteEmpenhoFromRequest.setFinancialPlanning(financialPlanning);
         }
 
+        paymentNoteEmpenhoFromRequest.setCreatedBy(Audit.currentUserId());
+        paymentNoteEmpenhoFromRequest.setUpdatedBy(Audit.currentUserId());
         return paymentNoteEmpenhoRepository.save(paymentNoteEmpenhoFromRequest);
     }
 
     @Transactional
-    public PaymentNoteEmpenho update(PaymentNoteEmpenho paymentNoteEmpenhoFromRequest) {
+    public PaymentNoteEmpenho update(PaymentNoteEmpenho paymentNoteEmpenhoFromRequest, Long pathId) {
         validate(paymentNoteEmpenhoFromRequest);
         if (paymentNoteEmpenhoFromRequest.getId() == null) {
             throw new BusinessRuleException("O ID da vinculação deve ser informado para a atualização.");
         }
+        Audit.requireIdMatch(paymentNoteEmpenhoFromRequest.getId(), pathId, "a Vinculação");
 
         PaymentNoteEmpenho paymentNoteEmpenhoToUpdate = paymentNoteEmpenhoRepository
                 .findById(paymentNoteEmpenhoFromRequest.getId())
@@ -102,6 +105,7 @@ public class PaymentNoteEmpenhoService {
             paymentNoteEmpenhoToUpdate.setFinancialPlanning(null);
         }
 
+        paymentNoteEmpenhoToUpdate.setUpdatedBy(Audit.currentUserId());
         return paymentNoteEmpenhoRepository.save(paymentNoteEmpenhoToUpdate);
     }
 

@@ -22,8 +22,8 @@ Bese_Projeto_Java_Front_Back/
 - **Linguagem:** Java 21 (obrigatório — `pom.xml` define `java.version=21`)
 - **Framework:** Spring Boot 3
 - **Persistência & BD:** Spring Data JPA, Hibernate, MySQL
-- **Migrações:** Flyway Migration (`src/main/resources/db/migration`, `V0__baseline.sql` → `V8`)
-- **Segurança & Auth:** Spring Security, JWT (JSON Web Token)
+- **Migrações:** Flyway Migration (`src/main/resources/db/migration`, `V0__baseline.sql` → `V11`)
+- **Segurança & Auth:** Spring Security, JWT (JSON Web Token), BCrypt, rate-limit (Bucket4j), revogação de token no logout, CPF/CNPJ cifrados em repouso (AES-256/GCM + índice HMAC)
 - **Gerenciador de Build:** Maven (usando `mvnw` wrapper, não precisa instalar o Maven)
 
 ### Frontend (`Front_Bese_Projeto/`)
@@ -77,7 +77,9 @@ FLUSH PRIVILEGES;
    DB_PASSWORD=troque_esta_senha
    JWT_SECRET=troque_por_uma_frase_longa_com_mais_de_32_letras_e_numeros_123
    CORS_ALLOWED_ORIGINS=http://localhost:5173
+   CRYPTO_KEY=gere_com_openssl_rand_hex_32_e_cole_aqui
    ```
+   Gere a chave com: `openssl rand -hex 32`
 
    | Variável | Descrição | Regras |
    | :--- | :--- | :--- |
@@ -85,6 +87,7 @@ FLUSH PRIVILEGES;
    | `DB_USERNAME` / `DB_PASSWORD` | Credenciais do MySQL | Iguais às do `CREATE USER` acima |
    | `JWT_SECRET` | Segredo que assina os tokens JWT | **Mínimo 32 caracteres**, só letras/números (evite `\| & ? * : ;`, que quebram o arquivo) |
    | `CORS_ALLOWED_ORIGINS` | Origem do frontend liberada | URL exata onde o `npm run dev` roda (sem `/` no final) |
+   | `CRYPTO_KEY` | Chave da criptografia de CPF/CNPJ em repouso (AES-256 + HMAC) | **64 hex de `openssl rand -hex 32`**. **Nunca troque em banco com dados** (invalida tudo cifrado) e nunca comite |
 
    Alternativa sem arquivo: exportar no terminal antes de subir (`export DB_USERNAME=...` etc.).
 
@@ -94,7 +97,11 @@ FLUSH PRIVILEGES;
    ```
    * No Windows: `mvnw.cmd spring-boot:run`
    * O Backend estará acessível em: `http://localhost:8080`
-   * No primeiro boot o Flyway aplica `V0 → V8` e o Hibernate valida o schema (`ddl-auto=validate`, ele não cria nada).
+   * No primeiro boot o Flyway aplica `V0 → V11` e o Hibernate valida o schema (`ddl-auto=validate`, ele não cria nada).
+
+> 🔐 **CPF/CNPJ cifrados:** o banco guarda `cpf`/`cnpj` cifrados (AES-256/GCM) + colunas de índice `cpf_hash`/`cnpj_hash` (HMAC, só para busca exata). O login funciona por igualdade de hash — o valor nunca é descriptografado para comparar. Linhas antigas em claro se auto-migram no primeiro uso. **Nunca troque a `CRYPTO_KEY` com dados no banco** (perde-se o acesso a tudo cifrado) e o `/admin` exibe CPF mascarado (`***.***.***-35`).
+
+> 📝 **Contrato dos PUTs:** atualizações usam `PUT /API/.../{id}` e o registro resolvido precisa ser o mesmo da URL (divergência → `400`). Criações/edições gravam `created_by`/`updated_by` com o id do usuário logado (trilha de auditoria, `V9`).
 
 ### 3. Criar o primeiro usuário ADMIN (banco novo não tem login)
 
@@ -106,6 +113,7 @@ INSERT INTO `user` (name, cpf, password, role)
 VALUES ('Administrador', '11144477735', '$2b$10$A3fx7fqPXBVACLti4CXEAOvAzib8I7SXIlh0DkOVz6rJLIDm3EXLy', 'ADMIN');
 ```
 * Login: CPF `11144477735` / senha `Trocar@123` (hash BCrypt, custo 10 — igual ao do app).
+* O CPF é cifrado + indexado automaticamente no **primeiro login** (transição de linhas legadas) — não edite as colunas `cpf`/`cpf_hash` na mão.
 * Após logar, crie seu usuário real em `/admin` e **delete ou troque a senha deste seed**.
 
 ---
@@ -136,7 +144,8 @@ VALUES ('Administrador', '11144477735', '$2b$10$A3fx7fqPXBVACLti4CXEAOvAzib8I7SX
 
 | Erro (último `Caused by` do log) | Onde está | O que fazer |
 | :--- | :--- | :--- |
-| `Could not resolve placeholder 'JWT_SECRET'` | `.env` ausente, com nome de chave errado ou app iniciado fora de `Bese_Projeto/` | Conferir `Bese_Projeto/.env` com as 5 chaves em maiúsculo; rodar a partir de `Bese_Projeto/`; restart completo |
+| `Could not resolve placeholder 'JWT_SECRET'` | `.env` ausente, com nome de chave errado ou app iniciado fora de `Bese_Projeto/` | Conferir `Bese_Projeto/.env` com as 6 chaves em maiúsculo; rodar a partir de `Bese_Projeto/`; restart completo |
+| `CRYPTO_KEY ausente ou curta` (fail-fast no boot) | Falta a 6ª variável no `.env` | Gerar com `openssl rand -hex 32` e adicionar `CRYPTO_KEY=...` (nunca reutilize a de outra base) |
 | `Access denied for user ... 1044` | Falta `GRANT` no MySQL | Rodar o bloco `GRANT ALL PRIVILEGES ON tesouraria.*` do passo 1 (senha igual ao `DB_PASSWORD`) |
 | `Access denied ... 1045` | Senha errada | Conferir `DB_PASSWORD` vs senha do `CREATE USER` |
 | Flyway `V1 ... 1824 Failed to open table 'payment_note'` | Banco criado antes da `V0__baseline.sql` existir | Este projeto já inclui a `V0`; em banco novo não acontece. Se acontecer, o banco está em estado antigo — recrie vazio |

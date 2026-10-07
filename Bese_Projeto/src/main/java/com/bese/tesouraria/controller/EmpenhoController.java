@@ -54,10 +54,10 @@ public class EmpenhoController {
 		return ResponseEntity.status(201).body(mapper.toDto(empenho));
 	}
 
-	@PutMapping
+	@PutMapping("/{id}")
 	@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-	public ResponseEntity<EmpenhoDto> update(@Valid @RequestBody EmpenhoDto empenhoDto, HttpServletRequest request) {
-		Empenho empenho = empenhoService.update(mapper.toEntity(empenhoDto));
+	public ResponseEntity<EmpenhoDto> update(@NotNull @PathVariable Long id, @Valid @RequestBody EmpenhoDto empenhoDto, HttpServletRequest request) {
+		Empenho empenho = empenhoService.update(mapper.toEntity(empenhoDto), id);
 		log.info("AUDIT_EMPENHO_UPDATED | empenhoId={} | numero={} | ip={}", empenho.getId(), empenho.getNumero(), request.getRemoteAddr());
 		return ResponseEntity.status(202).body(mapper.toDto(empenho));
 	}

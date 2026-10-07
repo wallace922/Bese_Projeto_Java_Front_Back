@@ -9,8 +9,10 @@ import {
 } from '../../services/api';
 import type { PaymentNoteEmpenhoDto } from '../../types';
 import { parseBRCurrency } from '../../lib/utils';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function VinculoBlock() {
+  const { success: toastSuccess, error: toastError } = useToast();
   const [np, setNp] = useState('');
   const [npAno, setNpAno] = useState('');
   const [empenho, setEmpenho] = useState('');
@@ -47,7 +49,9 @@ export default function VinculoBlock() {
     if (!empResult.data) erros.push(`Empenho nº ${empNum}/${empAno} (${empResult.errorMessage})`);
 
     if (erros.length > 0) {
-      setError(`Não encontrado(s):\n• ${erros.join('\n• ')}`);
+      const msg = `Não encontrado(s):\n• ${erros.join('\n• ')}`;
+      setError(msg);
+      toastError(msg);
       setLoading(false);
       return;
     }
@@ -67,8 +71,11 @@ export default function VinculoBlock() {
       setEmpenhoAno('');
       setValor('');
       setSuccess('Vínculo criado com sucesso! Acesse o Dashboard para visualizar.');
+      toastSuccess('Vínculo criado com sucesso!');
     } else {
-      setError(saveResult.errorMessage ?? 'Erro ao salvar o vínculo.');
+      const msg = saveResult.errorMessage ?? 'Erro ao salvar o vínculo.';
+      setError(msg);
+      toastError(msg);
     }
     setLoading(false);
   }

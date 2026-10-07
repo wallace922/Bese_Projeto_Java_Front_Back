@@ -38,20 +38,24 @@ public class FinancialPlanningService {
             throw new EntityExistsException("Planejamento financeiro já cadastrado para este número e ano.");
         }
 
+        financialPlanning.setCreatedBy(Audit.currentUserId());
+        financialPlanning.setUpdatedBy(Audit.currentUserId());
         return planningRepository.save(financialPlanning);
     }
 
     @Transactional
-    public FinancialPlanning update(FinancialPlanning planningFromRequest){
+    public FinancialPlanning update(FinancialPlanning planningFromRequest, Long pathId){
         if (planningFromRequest.getNumero() == null || planningFromRequest.getData() == null) {
             throw new BusinessRuleException("Número e data são obrigatórios para a atualização.");
         }
         
         FinancialPlanning planningToUpdate = findByNumeroAndAno(planningFromRequest.getNumero(), planningFromRequest.getData().getYear());
+        Audit.requireIdMatch(planningToUpdate.getId(), pathId, "o Planejamento Financeiro");
         
         planningToUpdate.setData(planningFromRequest.getData());
         planningToUpdate.setOrigin(planningFromRequest.getOrigin());
         planningToUpdate.setVinculation(planningFromRequest.getVinculation());
+        planningToUpdate.setUpdatedBy(Audit.currentUserId());
 
         return planningRepository.save(planningToUpdate);
     }

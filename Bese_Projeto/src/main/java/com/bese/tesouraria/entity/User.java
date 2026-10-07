@@ -1,8 +1,10 @@
 package com.bese.tesouraria.entity;
 
+import com.bese.tesouraria.converter.CpfConverter;
 import com.bese.tesouraria.enun.Role;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
@@ -28,8 +30,16 @@ public class User {
     @Column(nullable = false, length = 50, name = "name")
     private String name;
 
-    @Column(nullable = false, unique = true, updatable = false, length = 14, name = "cpf")
+    // Cifrado em repouso (CpfConverter). Imutabilidade garantida na camada de
+    // serviço (update nunca copia cpf); por isso sem updatable=false, o que
+    // permite a migração automática de linhas legadas em claro.
+    @Convert(converter = CpfConverter.class)
+    @Column(nullable = false, unique = true, length = 255, name = "cpf")
     private String cpf;
+
+    // Índice cego (HMAC dos dígitos) para busca exata e unicidade lógica.
+    @Column(name = "cpf_hash", length = 64, unique = true)
+    private String cpfHash;
 
     @Column(nullable = false, length = 255, name = "password")
     private String password;

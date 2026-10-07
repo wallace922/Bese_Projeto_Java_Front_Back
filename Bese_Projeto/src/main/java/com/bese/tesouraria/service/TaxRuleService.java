@@ -64,6 +64,8 @@ public class TaxRuleService {
                     }
                 });
 
+        newRule.setCreatedBy(Audit.currentUserId());
+        newRule.setUpdatedBy(Audit.currentUserId());
         return taxRuleRepository.save(newRule);
     }
 
@@ -119,6 +121,7 @@ public class TaxRuleService {
         existing.setItems(update.getItems());
         existing.setCodigoReceita(update.getCodigoReceita());
         existing.setDataFimVigencia(update.getDataFimVigencia());
+        existing.setUpdatedBy(Audit.currentUserId());
         return taxRuleRepository.save(existing);
     }
 }

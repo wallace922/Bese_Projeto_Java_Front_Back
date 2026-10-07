@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Collections;
 import java.util.Date;
+import java.util.UUID;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
@@ -35,6 +36,7 @@ public class TokenUtil {
 
         String token = Jwts.builder()
                 .setSubject(user.getId().toString())
+                .setId(UUID.randomUUID().toString())
                 .claim("role", user.getRole().name())
                 .claim("name", user.getName())
                 .setIssuer(EMISSOR)
@@ -95,6 +97,44 @@ public class TokenUtil {
             return true;
         } catch (IllegalArgumentException e) {
             return false;
+        }
+    }
+
+    // Extrai o jti (nº de série) do token. Retorna null se inválido.
+    public String extractJti(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(secretKey.getBytes(StandardCharsets.UTF_8))
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getId();
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    // Quanto tempo (ms) falta para o token expirar. 0 se inválido/expirado.
+    public long remainingMillis(String token) {
+        if (token == null || token.isBlank()) {
+            return 0;
+        }
+        try {
+            Date expiration = Jwts.parserBuilder()
+                    .setSigningKey(secretKey.getBytes(StandardCharsets.UTF_8))
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getExpiration();
+            if (expiration == null) {
+                return 0;
+            }
+            return Math.max(0, expiration.getTime() - System.currentTimeMillis());
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+            return 0;
         }
     }
 }

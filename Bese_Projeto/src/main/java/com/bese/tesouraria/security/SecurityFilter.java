@@ -1,5 +1,7 @@
 package com.bese.tesouraria.security;
 
+import com.bese.tesouraria.service.RevokedTokenService;
+
 import java.io.IOException;
 
 import org.springframework.lang.NonNull;
@@ -17,9 +19,11 @@ import jakarta.servlet.http.HttpServletResponse;
 public class SecurityFilter extends OncePerRequestFilter {
 
     private final TokenUtil tokenUtil;
+    private final RevokedTokenService revokedTokenService;
 
-    public SecurityFilter(TokenUtil tokenUtil) {
+    public SecurityFilter(TokenUtil tokenUtil, RevokedTokenService revokedTokenService) {
         this.tokenUtil = tokenUtil;
+        this.revokedTokenService = revokedTokenService;
     }
 
     @Override
@@ -33,8 +37,12 @@ public class SecurityFilter extends OncePerRequestFilter {
             // Valida o token e constrói o objeto de Autenticação do Spring Security
             Authentication auth = tokenUtil.validateTokenString(token);
             if (auth != null) {
-                // Registra o usuário autenticado na sessão atual da requisição
-                SecurityContextHolder.getContext().setAuthentication(auth);
+                // Barreira extra: token revogado (logout/troca de senha) não autentica
+                String jti = tokenUtil.extractJti(token);
+                if (!revokedTokenService.isRevoked(jti)) {
+                    // Registra o usuário autenticado na sessão atual da requisição
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
             }
         }
 

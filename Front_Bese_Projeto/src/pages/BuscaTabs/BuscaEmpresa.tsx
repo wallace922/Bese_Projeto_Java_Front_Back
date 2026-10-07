@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
-import Alert from '../../components/Alert';
+import EmptyState from '../../components/EmptyState';
 import EditIconButton from '../../components/EditIconButton';
 import PaginationControls from '../../components/PaginationControls';
 import { findEmpresaByCnpj, getAllEmpresa, updateEmpresa } from '../../services/api';
@@ -9,8 +9,11 @@ import type { EmpresaDto } from '../../types';
 import { formatCNPJ } from '../../lib/utils';
 import { SectionTitle, applyCnpjMask, TableContainer } from './Shared';
 import { useEntitySearch } from '../../hooks/useEntitySearch';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function BuscaEmpresa() {
+  const { error: toastError } = useToast();
+  const [highlightId, setHighlightId] = useState<number | null>(null);
   const [searchCnpj, setSearchCnpj] = useState('');
   const [nome, setNome] = useState('');
   const [cnpjEdit, setCnpjEdit] = useState('');
@@ -22,8 +25,7 @@ export default function BuscaEmpresa() {
     currentPage, totalPages, totalElements,
     found, setFound,
     editing, setEditing,
-    saving, saveError, setSaveError,
-    success, setSuccess,
+    saving,
     resetSearch,
     handleSearchRequest,
     handleGetAllRequest,
@@ -48,6 +50,10 @@ export default function BuscaEmpresa() {
       'Empresa atualizada com sucesso!',
       () => handleGetAllRequest(getAllEmpresa)
     );
+    if (found.id != null) {
+      setHighlightId(found.id);
+      window.setTimeout(() => setHighlightId(current => (current === found.id ? null : current)), 4000);
+    }
   };
 
   const handleSearch = () => {
@@ -55,7 +61,7 @@ export default function BuscaEmpresa() {
     const raw = searchCnpj.replace(/\D/g, '');
     if (raw.length !== 14) {
       resetSearch();
-      setError('CNPJ inválido (14 dígitos).');
+      toastError('CNPJ inválido (14 dígitos).');
       return;
     }
 
@@ -91,7 +97,14 @@ export default function BuscaEmpresa() {
         </div>
       </div>
 
-      {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
+      {error && (
+        <EmptyState
+          title="Nenhum resultado"
+          hint={error}
+          actionLabel="Listar todas"
+          onAction={handleGetAll}
+        />
+      )}
 
       {editing && found && (
         <div className="glass-panel p-5 animate-fadeIn mt-6 max-w-lg">
@@ -104,8 +117,6 @@ export default function BuscaEmpresa() {
             <Button onClick={handleSave} loading={saving}>Salvar Alterações</Button>
             <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
           </div>
-          {saveError && <Alert variant="error" message={saveError} onClose={() => setSaveError(null)} />}
-          {success && <Alert variant="success" message={success} onClose={() => setSuccess(null)} />}
         </div>
       )}
 
@@ -131,7 +142,7 @@ export default function BuscaEmpresa() {
               </thead>
               <tbody>
                 {allResults.map((e, i) => (
-                  <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
+                  <tr key={i} className={`border-b border-stone-800 hover:bg-stone-800/30 transition-colors ${highlightId != null && e.id === highlightId ? 'bg-amber-500/10 outline outline-1 outline-amber-500/50' : ''}`}>
                     <td className="py-2 pr-4 text-amber-300 font-mono whitespace-nowrap">{formatCNPJ(e.cnpj)}</td>
                     <td className="py-2 pr-4 text-gray-300">{e.nome}</td>
                     <td className="py-2 pr-4 w-8">
