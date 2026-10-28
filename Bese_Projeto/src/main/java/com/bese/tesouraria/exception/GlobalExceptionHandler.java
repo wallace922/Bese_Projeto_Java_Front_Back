@@ -66,7 +66,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         Map<String, String> error = new HashMap<>();
-        error.put("error", "Não é possível excluir: o registro está sendo referenciado por outros dados.");
+        error.put("error", "Violação de integridade dos dados. Verifique os dados enviados e tente novamente.");
         return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
 }

@@ -61,6 +61,9 @@ public class PaymentNoteService {
 
         BigDecimal total = BigDecimal.ZERO;
         for (PaymentNoteItem item : paymentNote.getItems()) {
+            if (item.getValue() != null && item.getValue().compareTo(BigDecimal.ZERO) < 0) {
+                throw new BusinessRuleException("Valor de item não pode ser negativo.");
+            }
             // Resolve o beneficiário: usa o CNPJ específico do item ou herda a empresa da NP.
             Empresa beneficiaria = (item.getEmpresaBeneficiaria() != null
                     && item.getEmpresaBeneficiaria().getCnpj() != null)
@@ -107,6 +110,9 @@ public class PaymentNoteService {
         BigDecimal total = BigDecimal.ZERO;
         for (PaymentNoteItem item : paymentNoteFromRequest.getItems()) {
             item.setId(null);
+            if (item.getValue() != null && item.getValue().compareTo(BigDecimal.ZERO) < 0) {
+                throw new BusinessRuleException("Valor de item não pode ser negativo.");
+            }
 
             // Resolve o beneficiário: usa o CNPJ específico do item ou herda a empresa da NP.
             Empresa beneficiaria = (item.getEmpresaBeneficiaria() != null

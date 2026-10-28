@@ -1,6 +1,7 @@
 package com.bese.tesouraria.service;
 
 import com.bese.tesouraria.entity.User;
+import com.bese.tesouraria.enun.Role;
 import com.bese.tesouraria.exception.BusinessRuleException;
 import com.bese.tesouraria.exception.EntityNotFoundException;
 import com.bese.tesouraria.repository.UserRepository;
@@ -22,10 +23,12 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final CryptoService crypto;
+    private final SessionUserService sessions;
 
-    public UserService(UserRepository userRepository, CryptoService crypto) {
+    public UserService(UserRepository userRepository, CryptoService crypto, SessionUserService sessions) {
         this.userRepository = userRepository;
         this.crypto = crypto;
+        this.sessions = sessions;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -80,6 +83,11 @@ public class UserService {
         existingUser.setName(user.getName());
 
         if (user.getRole() != null) {
+            // Impede rebaixar o último ADMIN (travaria a administração).
+            if (existingUser.getRole() == Role.ADMIN && user.getRole() != Role.ADMIN
+                    && userRepository.countByRole(Role.ADMIN) <= 1) {
+                throw new BusinessRuleException("Não é possível rebaixar o último administrador do sistema.");
+            }
             existingUser.setRole(user.getRole());
         }
 
@@ -88,7 +96,9 @@ public class UserService {
             existingUser.setPassword(encodedPassword);
         }
 
-        return userRepository.save(existingUser);
+        User saved = userRepository.save(existingUser);
+        sessions.invalidate(id);
+        return saved;
     }
 
     @Transactional
@@ -96,7 +106,19 @@ public class UserService {
         if (!userRepository.existsById(id)) {
             throw new EntityNotFoundException("Usuário não encontrado.");
         }
+        // Ninguém pode se auto-excluir (evita lockout acidental e remove
+        // a própria sessão em uso).
+        if (id.equals(Audit.currentUserId())) {
+            throw new BusinessRuleException("Você não pode excluir o próprio usuário.");
+        }
+        // Impede apagar o último ADMIN (travaria a administração).
+        userRepository.findById(id).ifPresent(target -> {
+            if (target.getRole() == Role.ADMIN && userRepository.countByRole(Role.ADMIN) <= 1) {
+                throw new BusinessRuleException("Não é possível excluir o último administrador do sistema.");
+            }
+        });
         userRepository.deleteById(id);
+        sessions.invalidate(id);
     }
 
     public User autenticar(String cpf, String rawPassword) {

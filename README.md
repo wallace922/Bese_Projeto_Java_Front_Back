@@ -103,6 +103,22 @@ FLUSH PRIVILEGES;
 
 > 📝 **Contrato dos PUTs:** atualizações usam `PUT /API/.../{id}` e o registro resolvido precisa ser o mesmo da URL (divergência → `400`). Criações/edições gravam `created_by`/`updated_by` com o id do usuário logado (trilha de auditoria, `V9`).
 
+### 2.1 Por trás de proxy reverso (nginx) — obrigatório em produção
+
+Sem isso, rate-limit e auditoria enxergam sempre o IP do proxy (5 logins errados bloqueiam a empresa toda). O backend já vem com `server.forward-headers-strategy=native`; falta o proxy enviar os headers e o firewall fechar a porta:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+* **Firewall:** a porta 8080 **não pode** ser pública — só o proxy fala com o app. Conexão direta com `X-Forwarded-For` falsificado só é ignorada se vier de fora das faixas confiáveis; com a porta exposta, qualquer cliente burla o rate-limit.
+* **Como conferir:** após subir atrás do proxy, as linhas `AUDIT_LOGIN_SUCCESS ... ip=...` precisam mostrar IPs variados de clientes. Se aparecer sempre o mesmo IP (o do proxy), o header não está chegando.
+
 ### 3. Criar o primeiro usuário ADMIN (banco novo não tem login)
 
 > ⚠️ O banco nasce **sem nenhum usuário** e só `ADMIN` pode criar usuários — ou seja, sem este passo ninguém consegue logar. Use este seed **somente em ambiente local/dev** e troque a senha em seguida.
@@ -152,6 +168,57 @@ VALUES ('Administrador', '11144477735', '$2b$10$A3fx7fqPXBVACLti4CXEAOvAzib8I7SX
 | Flyway `Checksum mismatch` / `Detected failed migration` | Arquivo de migration editado após rodar, ou migration falha registrada | Em dev com banco descartável: recriar o banco vazio e subir de novo. **Nunca** marque `success=1` na mão no `flyway_schema_history` |
 | Hibernate `Schema-validation: missing column [x]` | Coluna fora do padrão snake_case no banco | As migrations oficiais já seguem o padrão; acontece se alguma tabela foi criada manualmente |
 | Frontend `Network Error` / `CORS` | `CORS_ALLOWED_ORIGINS` divergente ou `baseURL` apontando p/ host errado | Alinhar `CORS_ALLOWED_ORIGINS` com a URL do `npm run dev` (sem barra final) |
+
+---
+
+## 📦 Deploy em produção (não use o modo dev no servidor)
+
+`./mvnw spring-boot:run` (com DevTools) e `npm run dev` (Vite dev, sem headers) são **só para desenvolvimento**. Em produção:
+
+**Backend — rodar o jar:**
+```bash
+cd Bese_Projeto
+./mvnw package -DskipTests
+java -jar target/tesouraria-0.0.1-SNAPSHOT.jar
+```
+* Rode como serviço (systemd) com as envs de produção (`DB_*`, `JWT_SECRET` e `CRYPTO_KEY` novos e só seus, `COOKIE_SECURE=true`). O DevTools se desativa sozinho fora do `run`.
+* Rollback: guarde o jar anterior; para voltar, pare o serviço e suba o jar antigo.
+
+**Frontend — servir a build pelo nginx:**
+```bash
+cd Front_Bese_Projeto
+npm run build   # gera dist/
+```
+```nginx
+server {
+    listen 443 ssl;
+    server_name seu-dominio;
+
+    root /caminho/para/Front_Bese_Projeto/dist;
+    index index.html;
+
+    # Segurança
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # API no mesmo domínio (evita CORS): ajuste a porta conforme o backend
+    location /API/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # SPA: qualquer rota cai no index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+* Faça a troca em **janela de manutenção**: pare dev (`run`/`dev`), suba jar + nginx, teste login → cadastrar NP → buscar → `/admin`, só então libere.
+* Como conferir no servidor: `ps aux | grep java` (tem que mostrar `java -jar`, nunca `spring-boot:run`) e `curl -i https://seu-dominio` (tem que trazer os headers acima).
 
 ---
 

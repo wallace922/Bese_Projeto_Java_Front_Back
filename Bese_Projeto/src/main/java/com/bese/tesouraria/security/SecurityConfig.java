@@ -21,6 +21,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.DispatcherType;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -47,6 +49,9 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        // O forward interno para /error (ex: após um 403) não deve
+                        // ser re-securitizado — senão o cliente recebe 401 no lugar do 403 real.
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.POST, "/API/User/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/API/User/logout").hasAnyRole("USER", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/API/User/me").hasAnyRole("USER", "ADMIN")

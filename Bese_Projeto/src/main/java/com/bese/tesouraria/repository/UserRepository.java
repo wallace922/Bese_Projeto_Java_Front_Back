@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import com.bese.tesouraria.entity.User;
+import com.bese.tesouraria.enun.Role;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -23,4 +24,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByCpfHash(String cpfHash);
 
     Boolean existsByCpfHash(String cpfHash);
+
+    long countByRole(Role role);
 }

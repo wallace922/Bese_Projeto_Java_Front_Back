@@ -1,7 +1,9 @@
 package com.bese.tesouraria.dto;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,9 +16,11 @@ public class PaymentNoteItemDto {
 
     private Long id;
 
+    @Size(max = 255, message = "descrição do item não pode ter mais de 255 caracteres")
     private String description;
 
     @NotNull(message = "valor do item não pode ser null")
+    @DecimalMin(value = "0.00", inclusive = true, message = "valor do item não pode ser negativo")
     private BigDecimal value;
 
     /**
@@ -42,6 +46,7 @@ public class PaymentNoteItemDto {
      * (singular) — o mapper converte automaticamente entre os dois formatos.
      */
     @Valid
+    @Size(max = 10, message = "item não pode ter mais de 10 grupos de imposto")
     private List<TaxDto> taxes;
 
     /**

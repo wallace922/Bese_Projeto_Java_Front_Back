@@ -97,10 +97,7 @@ public class UserController {
         userToUpdate.setPassword(dto.getPassword());
 
         User updatedUser = userService.update(id, userToUpdate);
-        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
-            // Senha trocada: invalida a sessão atual, força novo login
-            revokeCurrentToken(request);
-        }
+
         log.info("AUDIT_USER_UPDATED | targetUserId={} | newRole={} | ip={}", id, dto.getRole(), request.getRemoteAddr());
         return ResponseEntity.ok(mapper.toResponseDto(updatedUser));
     }

@@ -41,6 +41,7 @@ public class PaymentNoteBasicDto {
     private StatusPaymentNote status;
 
     @NotNull @Valid
+    @Size(max = 50, message = "nota não pode ter mais de 50 itens")
     private List<PaymentNoteItemDto> items;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd/MM/yyyy")
