@@ -8,7 +8,7 @@ import Alert from '../components/Alert';
 import TaxAdjustmentPanel from '../components/TaxAdjustmentPanel';
 import ConfirmSaveModal from '../components/ConfirmSaveModal';
 import TaxRuleItemEditor from '../components/TaxRuleItemEditor';
-import { NpItemEditor, editStateToItem, applyPreviewToItems, DEFAULT_ITEM } from '../components/NpItemEditor';
+import { NpItemEditor, editStateToItem, DEFAULT_ITEM } from '../components/NpItemEditor';
 import type { ItemEditState } from '../components/NpItemEditor';
 import QuickFormEmpresa from './CadastroTabs/QuickFormEmpresa';
 import QuickFormEmpenho from './CadastroTabs/QuickFormEmpenho';
@@ -18,7 +18,6 @@ import {
   saveEmpenho,
   saveFinancialPlanning,
   savePaymentNote,
-  previewPaymentNote,
   createTaxRuleVersion,
   findEmpresaByCnpj,
 } from '../services/api';
@@ -310,8 +309,6 @@ function FormPaymentNote() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<PaymentNoteDto | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
   const { success: toastSuccess } = useToast();
 
   function updateItem(idx: number, next: ItemEditState) {
@@ -336,58 +333,38 @@ function FormPaymentNote() {
     setCnpjLoading(false);
   }
 
-  function resetPreviews() {
-    setNpItems(prev => prev.map(it => ({
-      ...it,
-      taxGroups: it.taxGroups.map(g => ({
-        ...g,
-        backendItems: [],
-        manualItems: [],
-        isManualAdjustment: false,
-      })),
-    })));
-  }
-
-  function validarFormulario(): string | null {
-    if (!numeroNp || !dataLiq || !docOrigin) {
-      return 'Preencha todos os campos obrigatórios: Nº NP, Data e Doc. Origem.';
-    }
-
+  function openConfirm() {
+    setError(null); setSuccess(null);
+    if (!numeroNp || !dataLiq || !docOrigin) { setError('Preencha todos os campos obrigatórios: Nº NP, Data e Doc. Origem.'); return; }
     const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
-    if (!dateRegex.test(dataLiq)) {
-      return 'Data Liquidação inválida. Use o formato DD/MM/YYYY.';
-    }
-
-    if (!cnpjValid) {
-      return 'Valide o CNPJ antes de salvar.';
-    }
-
+    if (!dateRegex.test(dataLiq)) { setError('Data Liquidação inválida. Use o formato DD/MM/YYYY.'); return; }
+    if (!cnpjValid) { setError('Valide o CNPJ antes de salvar.'); return; }
     if (status === 'PAGA' && !datePayment) {
-      return 'A Data de Pagamento é obrigatória quando o status é PAGA.';
+      setError('A Data de Pagamento é obrigatória quando o status é PAGA.');
+      return;
     }
-
-    if (npItems.length === 0) {
-      return 'Adicione pelo menos um item.';
-    }
-
+    if (npItems.length === 0) { setError('Adicione pelo menos um item.'); return; }
     if (npItems.some(it => !it.value || parseBRCurrency(it.value) <= 0)) {
-      return 'Todos os itens devem ter um valor maior que zero.';
+      setError('Todos os itens devem ter um valor maior que zero.'); return;
     }
-
     // Valida que todos os grupos NAO_OPTANTE com codEfd têm código de receita selecionado
     for (const it of npItems) {
       for (const g of it.taxGroups) {
         if (g.taxTipo === 'NAO_OPTANTE' && g.codEfd && g.codigoReceita == null) {
-          return `Selecione o Código de Receita para o grupo com Cód. EFD ${g.codEfd}.`;
+          setError(`Selecione o Código de Receita para o grupo com Cód. EFD ${g.codEfd}.`);
+          return;
         }
       }
     }
-
-    return null;
+    setConfirmOpen(true);
   }
 
-  function buildDto(): PaymentNoteDto {
-    return {
+  async function handleSaveConfirmed() {
+    setConfirmOpen(false);
+    setError(null); setSuccess(null);
+    setLoading(true);
+
+    const dto: PaymentNoteDto = {
       numeroNp: parseInt(numeroNp, 10),
       dataLiquidacao: dataLiq,
       empresa: { nome: empresaNome, cnpj: cnpj.replace(/\D/g, '') },
@@ -396,44 +373,8 @@ function FormPaymentNote() {
       items: npItems.map(editStateToItem),
       datePayment: status === 'PAGA' && datePayment ? datePayment : null,
     };
-  }
 
-  function openConfirm() {
-    setError(null); setSuccess(null);
-    const msg = validarFormulario();
-    if (msg) { setError(msg); return; }
-    setConfirmOpen(true);
-  }
-
-  async function handlePreview() {
-    setPreviewError(null);
-    setError(null);
-
-    const msg = validarFormulario();
-    if (msg) {
-      setPreviewError(msg);
-      return;
-    }
-
-    setPreviewLoading(true);
-    const result = await previewPaymentNote(buildDto());
-    setPreviewLoading(false);
-
-    if (!result.data) {
-      setPreviewError(result.errorMessage ?? 'Não foi possível calcular a prévia.');
-      return;
-    }
-
-    setNpItems(prev => applyPreviewToItems(prev, result.data?.items));
-    toastSuccess('Prévia dos impostos calculada.');
-  }
-
-  async function handleSaveConfirmed() {
-    setConfirmOpen(false);
-    setError(null); setSuccess(null);
-    setLoading(true);
-
-    const result = await savePaymentNote(buildDto());
+    const result = await savePaymentNote(dto);
 
     if (result.data) {
       setSuccess(result.data);
@@ -442,7 +383,6 @@ function FormPaymentNote() {
       setCnpj(''); setCnpjValid(null); setEmpresaNome('');
       setStatus('A_PAGAR'); setDatePayment('');
       setNpItems([{ ...DEFAULT_ITEM }]);
-      setPreviewError(null);
     } else { setError(result.errorMessage ?? 'Erro ao salvar Payment Note.'); }
     setLoading(false);
   }
@@ -464,10 +404,7 @@ function FormPaymentNote() {
                 inputMode="numeric"
                 placeholder="DD/MM/YYYY"
                 value={dataLiq}
-                onChange={(e) => {
-                  setDataLiq(applyDateMask(e.target.value));
-                  resetPreviews();
-                }}
+                onChange={(e) => setDataLiq(applyDateMask(e.target.value))}
                 maxLength={10}
               />
               <Input label="Doc. Origem" placeholder="DOC-001" value={docOrigin} onChange={(e) => setDocOrigin(e.target.value)} />
@@ -552,29 +489,9 @@ function FormPaymentNote() {
 
           <div className="space-y-3">
             {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
-            {previewError && (
-              <Alert variant="error" message={previewError} onClose={() => setPreviewError(null)} />
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                loading={previewLoading}
-                disabled={loading || previewLoading || cnpjValid === false}
-                onClick={handlePreview}
-              >
-                Prévia dos Impostos
-              </Button>
-
-              <Button
-                variant="primary"
-                loading={loading}
-                disabled={cnpjValid === false || loading || previewLoading}
-                onClick={openConfirm}
-              >
-                Cadastrar Payment Note
-              </Button>
-            </div>
+            <Button variant="primary" loading={loading} disabled={cnpjValid === false || loading} onClick={openConfirm}>
+              Cadastrar Payment Note
+            </Button>
           </div>
 
           {success && (

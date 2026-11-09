@@ -53,7 +53,7 @@ public class PaymentNoteItemMapper {
 
         // Pré-popula o CNPJ para que o serviço faça o lookup completo.
         // O serviço resolverá a empresa real via empresaService.findyByCnpj().
-        if (dto.getEmpresaBeneficiaria() != null && dto.getEmpresaBeneficiaria().getCnpj() != null) {
+        if (dto.getEmpresaBeneficiaria() != null && dto.getEmpresaBeneficiaria().getCnpj() != null && !dto.getEmpresaBeneficiaria().getCnpj().isBlank()) {
             Empresa beneficiaria = new Empresa();
             beneficiaria.setCnpj(dto.getEmpresaBeneficiaria().getCnpj());
             item.setEmpresaBeneficiaria(beneficiaria);

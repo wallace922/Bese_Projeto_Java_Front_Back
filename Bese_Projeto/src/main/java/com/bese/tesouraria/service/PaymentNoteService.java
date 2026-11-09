@@ -56,7 +56,7 @@ public class PaymentNoteService {
         }
 
         // Cópia porque prepararNota limpa a coleção antes de reprocessar.
-        prepararNota(paymentNote, new ArrayList<>(paymentNote.getItems()), false);
+        prepararNota(paymentNote, paymentNote, new ArrayList<>(paymentNote.getItems()), false);
 
         paymentNote.setCreatedBy(Audit.currentUserId());
         paymentNote.setUpdatedBy(Audit.currentUserId());
@@ -77,10 +77,9 @@ public class PaymentNoteService {
         existing.setDocOrigin(paymentNoteFromRequest.getDocOrigin());
         existing.setStatus(paymentNoteFromRequest.getStatus());
         existing.setDatePayment(paymentNoteFromRequest.getDatePayment());
-        existing.setEmpresa(paymentNoteFromRequest.getEmpresa());
 
         // resetItemIds = true força INSERT dos itens recriados (evita update indevido).
-        prepararNota(existing, paymentNoteFromRequest.getItems(), true);
+        prepararNota(existing, paymentNoteFromRequest, paymentNoteFromRequest.getItems(), true);
 
         existing.setUpdatedBy(Audit.currentUserId());
 
@@ -99,7 +98,7 @@ public class PaymentNoteService {
      */
     @Transactional
     public PaymentNote previewNp(PaymentNote paymentNote) {
-        prepararNota(paymentNote, new ArrayList<>(paymentNote.getItems()), false);
+        prepararNota(paymentNote, paymentNote, new ArrayList<>(paymentNote.getItems()), false);
         return paymentNote;
     }
 
@@ -127,25 +126,27 @@ public class PaymentNoteService {
      * Pipeline único de preparação da nota, compartilhado por criação,
      * atualização e prévia:
      *
-     *  1. valida CNPJ e data de pagamento;
-     *  2. resolve a empresa da NP;
-     *  3. limpa a coleção atual e reprocessa os itens recebidos;
-     *  4. resolve o beneficiário de cada item;
-     *  5. valida duplicidade de grupos e calcula os impostos;
-     *  6. soma apenas os valores dos itens no total da nota.
+     *  1. valida CNPJ e data de pagamento a partir dos dados de origem;
+     *  2. resolve a empresa da NP de forma persistente;
+     *  3. associa a empresa persistida à nota alvo;
+     *  4. limpa a coleção atual e reprocessa os itens recebidos;
+     *  5. resolve o beneficiário de cada item;
+     *  6. valida duplicidade de grupos e calcula os impostos;
+     *  7. soma apenas os valores dos itens no total da nota.
      *
-     * @param nota          entidade alvo (nova ou existente)
+     * @param notaAlvo      entidade alvo que será salva (nova ou existente gerenciada)
+     * @param dadosOrigem   objeto de requisição com os dados a serem validados/resolvidos
      * @param itens         itens a processar (cópia, quando vierem da própria nota)
      * @param resetItemIds  true no update, para forçar INSERT dos itens recriados
      */
-    private void prepararNota(PaymentNote nota, List<PaymentNoteItem> itens, boolean resetItemIds) {
-        validarCnpj(nota);
-        validarDataPagamento(nota);
+    private void prepararNota(PaymentNote notaAlvo, PaymentNote dadosOrigem, List<PaymentNoteItem> itens, boolean resetItemIds) {
+        validarCnpj(dadosOrigem);
+        validarDataPagamento(dadosOrigem);
 
-        Empresa empresa = empresaService.findyByCnpj(nota.getEmpresa().getCnpj());
-        nota.setEmpresa(empresa);
+        Empresa empresa = empresaService.findyByCnpj(dadosOrigem.getEmpresa().getCnpj());
+        notaAlvo.setEmpresa(empresa);
 
-        nota.getItems().clear();
+        notaAlvo.getItems().clear();
 
         BigDecimal total = BigDecimal.ZERO;
         for (PaymentNoteItem item : itens) {
@@ -159,20 +160,21 @@ public class PaymentNoteService {
 
             // Resolve o beneficiário: usa o CNPJ específico do item ou herda a empresa da NP.
             Empresa beneficiaria = (item.getEmpresaBeneficiaria() != null
-                    && item.getEmpresaBeneficiaria().getCnpj() != null)
+                    && item.getEmpresaBeneficiaria().getCnpj() != null
+                    && !item.getEmpresaBeneficiaria().getCnpj().isBlank())
                     ? empresaService.findyByCnpj(item.getEmpresaBeneficiaria().getCnpj())
                     : empresa;
             item.setEmpresaBeneficiaria(beneficiaria);
 
-            processarImpostosDoItem(item, nota.getDataLiquidacao());
-            item.setPaymentNote(nota);
-            nota.getItems().add(item);
+            processarImpostosDoItem(item, notaAlvo.getDataLiquidacao());
+            item.setPaymentNote(notaAlvo);
+            notaAlvo.getItems().add(item);
 
             // O total é a soma dos VALORES dos itens — nunca dos impostos.
             // Múltiplos grupos de imposto no mesmo item NÃO duplicam o valor.
             total = total.add(item.getValue());
         }
-        nota.setValue(total);
+        notaAlvo.setValue(total);
     }
 
     /**

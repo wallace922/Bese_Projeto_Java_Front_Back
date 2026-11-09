@@ -83,6 +83,54 @@ public class PaymentNote {
 		this.dataLiquidacao = dataLiquidacao;
 	}
 
+	public LocalDate getDataLiquidacao() {
+		return this.dataLiquidacao;
+	}
+
+	public Long getId() {
+		return this.id;
+	}
+
+	public Integer getNumeroNp() {
+		return this.numeroNp;
+	}
+
+	public void setNumeroNp(Integer numeroNp) {
+		this.numeroNp = numeroNp;
+	}
+
+	public Empresa getEmpresa() {
+		return this.empresa;
+	}
+
+	public LocalDate getDatePayment() {
+		return this.datePayment;
+	}
+
+	public String getDocOrigin() {
+		return this.docOrigin;
+	}
+
+	public BigDecimal getValue() {
+		return this.value;
+	}
+
+	public StatusPaymentNote getStatus() {
+		return this.status;
+	}
+
+	public List<PaymentNoteItem> getItems() {
+		return this.items;
+	}
+
+	public Long getCreatedBy() {
+		return this.createdBy;
+	}
+
+	public Long getUpdatedBy() {
+		return this.updatedBy;
+	}
+
 	public void setStatus(StatusPaymentNote status) {
 		if (status != StatusPaymentNote.PAGA) {
 			this.datePayment = null;

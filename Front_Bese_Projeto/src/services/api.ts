@@ -294,7 +294,10 @@ export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<Pa
  */
 export async function previewPaymentNote(dto: PaymentNoteDto): Promise<ApiResult<PaymentNoteDto>> {
   try {
-    const res = await api.post<PaymentNoteDto>('/API/Np/preview', buildPaymentNotePayload(dto));
+    const res = await api.post<PaymentNoteDto>(
+      '/API/Np/preview',
+      buildPaymentNotePayload(dto, true),
+    );
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }

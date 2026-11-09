@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Alert from '../../components/Alert';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import Select from '../../components/Select';
@@ -6,9 +7,9 @@ import EmptyState from '../../components/EmptyState';
 import EditIconButton from '../../components/EditIconButton';
 import PaginationControls from '../../components/PaginationControls';
 import ConfirmSaveModal from '../../components/ConfirmSaveModal';
-import { NpItemEditor, itemToEditState, editStateToItem, DEFAULT_ITEM } from '../../components/NpItemEditor';
+import { NpItemEditor, itemToEditState, editStateToItem, applyPreviewToItems, DEFAULT_ITEM } from '../../components/NpItemEditor';
 import type { ItemEditState } from '../../components/NpItemEditor';
-import { findNpByNumeroEAno, getAllNp, updatePaymentNote, findEmpresaByCnpj } from '../../services/api';
+import { findNpByNumeroEAno, getAllNp, updatePaymentNote, previewPaymentNote, findEmpresaByCnpj } from '../../services/api';
 import type { PaymentNoteDto } from '../../types';
 import { toInputDate, formatCurrency, formatDate, parseBRCurrency } from '../../lib/utils';
 import { SectionTitle, TableContainer, applyCnpjMask } from './Shared';
@@ -36,7 +37,9 @@ export default function BuscaPaymentNote() {
   const [editItems, setEditItems] = useState<ItemEditState[]>([{ ...DEFAULT_ITEM }]);
   // Modal
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const { error: toastError } = useToast();
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const { error: toastError, success: toastSuccess } = useToast();
   const [highlightId, setHighlightId] = useState<number | null>(null);
 
   const {
@@ -66,6 +69,8 @@ export default function BuscaPaymentNote() {
     setCnpjValid(true);
     setCnpjError(null);
     setDatePayment(np.datePayment ? toInputDate(np.datePayment) : '');
+    setPreviewError(null);
+    setPreviewLoading(false);
     // Popula os itens editáveis a partir da NP carregada
     const items = np.items && np.items.length > 0
       ? np.items.map(itemToEditState)
@@ -86,37 +91,49 @@ export default function BuscaPaymentNote() {
     setEditItems(prev => [...prev, { ...DEFAULT_ITEM }]);
   }
 
-  const openConfirm = () => {
-    if (!found) return;
+  function resetPreviews() {
+    setEditItems(prev => prev.map(it => ({
+      ...it,
+      taxGroups: it.taxGroups.map(g => ({
+        ...g,
+        backendItems: [],
+        manualItems: [],
+        isManualAdjustment: false,
+      })),
+    })));
+  }
+
+  function validarFormulario(): string | null {
+    if (!found) return 'Nenhuma Payment Note em edição.';
     const npNum = parseInt(numeroNp, 10);
-    if (isNaN(npNum)) { toastError('Nº NP inválido.'); return; }
-    if (!cnpjValid) { toastError('Valide o CNPJ antes de salvar.'); return; }
+    if (isNaN(npNum)) return 'Nº NP inválido.';
+    if (!dataLiq) return 'Preencha a Data de Liquidação.';
+    if (!docOrigin) return 'Preencha o Doc. Origem.';
+    if (!cnpjValid) return 'Valide o CNPJ antes de salvar.';
     if (status === 'PAGA' && !datePayment) {
-      toastError('A Data de Pagamento é obrigatória quando o status é PAGA.');
-      return;
+      return 'A Data de Pagamento é obrigatória quando o status é PAGA.';
+    }
+    if (editItems.length === 0) {
+      return 'Adicione pelo menos um item.';
     }
     if (editItems.some(it => !it.value || isNaN(parseBRCurrency(it.value)) || parseBRCurrency(it.value) <= 0)) {
-      toastError('Todos os itens devem ter um valor válido maior que zero.'); return;
+      return 'Todos os itens devem ter um valor válido maior que zero.';
     }
     // Valida que todos os grupos NAO_OPTANTE com codEfd têm código de receita selecionado
     for (const it of editItems) {
       for (const g of it.taxGroups) {
         if (g.taxTipo === 'NAO_OPTANTE' && g.codEfd && g.codigoReceita == null) {
-          toastError(`Selecione o Código de Receita para o grupo com Cód. EFD ${g.codEfd}.`);
-          return;
+          return `Selecione o Código de Receita para o grupo com Cód. EFD ${g.codEfd}.`;
         }
       }
     }
-    setConfirmOpen(true);
-  };
+    return null;
+  }
 
-  const handleSaveConfirmed = () => {
-    setConfirmOpen(false);
-    if (!found) return;
+  function buildPayload(): PaymentNoteDto {
     const npNum = parseInt(numeroNp, 10);
-    if (isNaN(npNum)) { toastError('Nº NP inválido.'); return; }
-    const payload: PaymentNoteDto = {
-      ...found,
+    return {
+      ...found!,
       numeroNp: npNum,
       dataLiquidacao: dataLiq,
       docOrigin,
@@ -125,12 +142,50 @@ export default function BuscaPaymentNote() {
       items: editItems.map(editStateToItem),
       datePayment: status === 'PAGA' && datePayment ? datePayment : null,
     };
+  }
+
+  const openConfirm = () => {
+    setPreviewError(null);
+    const msg = validarFormulario();
+    if (msg) { toastError(msg); return; }
+    setConfirmOpen(true);
+  };
+
+  async function handlePreview() {
+    setPreviewError(null);
+    const msg = validarFormulario();
+    if (msg) {
+      setPreviewError(msg);
+      toastError(msg);
+      return;
+    }
+
+    setPreviewLoading(true);
+    const result = await previewPaymentNote(buildPayload());
+    setPreviewLoading(false);
+
+    if (!result.data) {
+      const err = result.errorMessage ?? 'Não foi possível calcular a prévia.';
+      setPreviewError(err);
+      toastError(err);
+      return;
+    }
+
+    setEditItems(prev => applyPreviewToItems(prev, result.data?.items));
+    toastSuccess('Prévia dos impostos calculada.');
+  }
+
+  const handleSaveConfirmed = () => {
+    setConfirmOpen(false);
+    const msg = validarFormulario();
+    if (msg) { toastError(msg); return; }
+    const payload = buildPayload();
     handleSaveRequest(
       () => updatePaymentNote(payload),
       'Payment Note atualizada!',
       () => handleGetAllRequest(getAllNp)
     );
-    if (found.id != null) {
+    if (found?.id != null) {
       setHighlightId(found.id);
       window.setTimeout(() => setHighlightId(current => (current === found.id ? null : current)), 4000);
     }
@@ -149,7 +204,7 @@ export default function BuscaPaymentNote() {
     setCnpjLoading(false);
   }
 
-  const totalValorItens = editItems.reduce((s, it) => s + (parseFloat(it.value) || 0), 0);
+  const totalValorItens = editItems.reduce((s, it) => s + (parseBRCurrency(it.value) || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -194,7 +249,15 @@ export default function BuscaPaymentNote() {
           {/* Campos da NP */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-2xl">
             <Input label="Nº NP" type="number" value={numeroNp} onChange={e => setNumeroNp(e.target.value)} />
-            <Input label="Data Liq." type="date" value={dataLiq} onChange={e => setDataLiq(e.target.value)} />
+            <Input
+              label="Data Liq."
+              type="date"
+              value={dataLiq}
+              onChange={e => {
+                setDataLiq(e.target.value);
+                resetPreviews();
+              }}
+            />
             <Input label="Doc. Origem" value={docOrigin} onChange={e => setDocOrigin(e.target.value)} />
             <Select label="Status" value={status} onChange={e => {
               const newStatus = e.target.value as PaymentNoteDto['status'];
@@ -271,12 +334,40 @@ export default function BuscaPaymentNote() {
             </div>
           </div>
 
-          {/* Ações */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button onClick={openConfirm} loading={saving} disabled={cnpjValid === false || cnpjLoading}>
-              Salvar Alterações
-            </Button>
-            <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
+          <div className="space-y-3">
+            {previewError && (
+              <Alert variant="error" message={previewError} onClose={() => setPreviewError(null)} />
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                loading={previewLoading}
+                disabled={saving || previewLoading || cnpjValid === false || cnpjLoading}
+                onClick={handlePreview}
+              >
+                Prévia dos Impostos
+              </Button>
+
+              <Button
+                variant="primary"
+                loading={saving}
+                disabled={cnpjValid === false || cnpjLoading || previewLoading}
+                onClick={openConfirm}
+              >
+                Salvar Alterações
+              </Button>
+
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setEditing(false);
+                  setPreviewError(null);
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
           </div>
         </div>
       )}
