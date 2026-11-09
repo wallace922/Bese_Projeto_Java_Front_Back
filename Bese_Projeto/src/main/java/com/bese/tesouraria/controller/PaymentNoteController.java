@@ -56,6 +56,23 @@ public class PaymentNoteController {
 		return ResponseEntity.status(201).body(mapper.toDto(savedPaymentNote));
 	}
 
+	/**
+	 * Prévia de impostos: executa o mesmo pipeline do save, sem persistir.
+	 *
+	 * <p>Usa o mesmo DTO de entrada e o mesmo DTO de saída do POST /API/Np,
+	 * para não duplicar contrato. A resposta já traz, em cada item, a lista
+	 * {@code taxes} com {@code calculatedItems}, {@code taxStatus},
+	 * {@code codigoReceita} e {@code taxRuleDescription}.
+	 */
+	@PostMapping("/preview")
+	@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+	public ResponseEntity<PaymentNoteBasicDto> preview(
+			@Valid @RequestBody PaymentNoteBasicDto paymentNoteBasicDto) {
+		PaymentNote paymentNote = mapper.toEntity(paymentNoteBasicDto);
+		PaymentNote preview = service.previewNp(paymentNote);
+		return ResponseEntity.ok(mapper.toDto(preview));
+	}
+
 	@PutMapping("/{id}")
 	@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 	public ResponseEntity<PaymentNoteBasicDto> update(@NotNull @PathVariable Long id,

@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,32 +55,9 @@ public class PaymentNoteService {
                     "PaymentNote já registrada com este número e ano.");
         }
 
-        validarCnpj(paymentNote);
-        validarDataPagamento(paymentNote);
+        // Cópia porque prepararNota limpa a coleção antes de reprocessar.
+        prepararNota(paymentNote, new ArrayList<>(paymentNote.getItems()), false);
 
-        Empresa empresa = empresaService.findyByCnpj(paymentNote.getEmpresa().getCnpj());
-        paymentNote.setEmpresa(empresa);
-
-        BigDecimal total = BigDecimal.ZERO;
-        for (PaymentNoteItem item : paymentNote.getItems()) {
-            if (item.getValue() != null && item.getValue().compareTo(BigDecimal.ZERO) < 0) {
-                throw new BusinessRuleException("Valor de item não pode ser negativo.");
-            }
-            // Resolve o beneficiário: usa o CNPJ específico do item ou herda a empresa da NP.
-            Empresa beneficiaria = (item.getEmpresaBeneficiaria() != null
-                    && item.getEmpresaBeneficiaria().getCnpj() != null)
-                    ? empresaService.findyByCnpj(item.getEmpresaBeneficiaria().getCnpj())
-                    : empresa;
-            item.setEmpresaBeneficiaria(beneficiaria);
-
-            processarImpostosDoItem(item, paymentNote.getDataLiquidacao());
-            item.setPaymentNote(paymentNote);
-
-            // O total é a soma dos VALORES dos itens — nunca dos impostos.
-            // Múltiplos grupos de imposto no mesmo item NÃO duplicam o valor.
-            total = total.add(item.getValue());
-        }
-        paymentNote.setValue(total);
         paymentNote.setCreatedBy(Audit.currentUserId());
         paymentNote.setUpdatedBy(Audit.currentUserId());
 
@@ -94,43 +73,34 @@ public class PaymentNoteService {
         // O registro da chave natural (número+ano) precisa ser o mesmo da URL.
         Audit.requireIdMatch(existing.getId(), pathId, "a Nota de Pagamento");
 
-        validarCnpj(paymentNoteFromRequest);
-        validarDataPagamento(paymentNoteFromRequest);
-
-        Empresa empresa = empresaService.findyByCnpj(paymentNoteFromRequest.getEmpresa().getCnpj());
-        existing.setEmpresa(empresa);
-
         existing.setDataLiquidacao(paymentNoteFromRequest.getDataLiquidacao());
         existing.setDocOrigin(paymentNoteFromRequest.getDocOrigin());
         existing.setStatus(paymentNoteFromRequest.getStatus());
         existing.setDatePayment(paymentNoteFromRequest.getDatePayment());
+        existing.setEmpresa(paymentNoteFromRequest.getEmpresa());
 
-        existing.getItems().clear();
+        // resetItemIds = true força INSERT dos itens recriados (evita update indevido).
+        prepararNota(existing, paymentNoteFromRequest.getItems(), true);
 
-        BigDecimal total = BigDecimal.ZERO;
-        for (PaymentNoteItem item : paymentNoteFromRequest.getItems()) {
-            item.setId(null);
-            if (item.getValue() != null && item.getValue().compareTo(BigDecimal.ZERO) < 0) {
-                throw new BusinessRuleException("Valor de item não pode ser negativo.");
-            }
-
-            // Resolve o beneficiário: usa o CNPJ específico do item ou herda a empresa da NP.
-            Empresa beneficiaria = (item.getEmpresaBeneficiaria() != null
-                    && item.getEmpresaBeneficiaria().getCnpj() != null)
-                    ? empresaService.findyByCnpj(item.getEmpresaBeneficiaria().getCnpj())
-                    : empresa;
-            item.setEmpresaBeneficiaria(beneficiaria);
-
-            processarImpostosDoItem(item, paymentNoteFromRequest.getDataLiquidacao());
-            item.setPaymentNote(existing);
-            existing.getItems().add(item);
-
-            total = total.add(item.getValue());
-        }
-        existing.setValue(total);
         existing.setUpdatedBy(Audit.currentUserId());
 
         return paymentNoteRepository.save(existing);
+    }
+
+    /**
+     * Executa o MESMO pipeline de validação, resolução de empresas e cálculo
+     * de impostos usado por saveNp/updateNp, mas:
+     *  - não verifica duplicidade de número/ano (a nota ainda não será salva);
+     *  - não grava auditoria;
+     *  - não persiste a PaymentNote.
+     *
+     * O objeto retornado é transiente e já contém, em cada Tax, o taxStatus
+     * e o snapshot calculatedItems prontos para o frontend.
+     */
+    @Transactional
+    public PaymentNote previewNp(PaymentNote paymentNote) {
+        prepararNota(paymentNote, new ArrayList<>(paymentNote.getItems()), false);
+        return paymentNote;
     }
 
     public PaymentNote findByNumeroNpForYear(Integer numeroNp, Integer ano) {
@@ -154,6 +124,58 @@ public class PaymentNoteService {
     // ── Métodos privados ───────────────────────────────────────────────────────
 
     /**
+     * Pipeline único de preparação da nota, compartilhado por criação,
+     * atualização e prévia:
+     *
+     *  1. valida CNPJ e data de pagamento;
+     *  2. resolve a empresa da NP;
+     *  3. limpa a coleção atual e reprocessa os itens recebidos;
+     *  4. resolve o beneficiário de cada item;
+     *  5. valida duplicidade de grupos e calcula os impostos;
+     *  6. soma apenas os valores dos itens no total da nota.
+     *
+     * @param nota          entidade alvo (nova ou existente)
+     * @param itens         itens a processar (cópia, quando vierem da própria nota)
+     * @param resetItemIds  true no update, para forçar INSERT dos itens recriados
+     */
+    private void prepararNota(PaymentNote nota, List<PaymentNoteItem> itens, boolean resetItemIds) {
+        validarCnpj(nota);
+        validarDataPagamento(nota);
+
+        Empresa empresa = empresaService.findyByCnpj(nota.getEmpresa().getCnpj());
+        nota.setEmpresa(empresa);
+
+        nota.getItems().clear();
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (PaymentNoteItem item : itens) {
+            if (resetItemIds) {
+                item.setId(null);
+            }
+
+            if (item.getValue() != null && item.getValue().compareTo(BigDecimal.ZERO) < 0) {
+                throw new BusinessRuleException("Valor de item não pode ser negativo.");
+            }
+
+            // Resolve o beneficiário: usa o CNPJ específico do item ou herda a empresa da NP.
+            Empresa beneficiaria = (item.getEmpresaBeneficiaria() != null
+                    && item.getEmpresaBeneficiaria().getCnpj() != null)
+                    ? empresaService.findyByCnpj(item.getEmpresaBeneficiaria().getCnpj())
+                    : empresa;
+            item.setEmpresaBeneficiaria(beneficiaria);
+
+            processarImpostosDoItem(item, nota.getDataLiquidacao());
+            item.setPaymentNote(nota);
+            nota.getItems().add(item);
+
+            // O total é a soma dos VALORES dos itens — nunca dos impostos.
+            // Múltiplos grupos de imposto no mesmo item NÃO duplicam o valor.
+            total = total.add(item.getValue());
+        }
+        nota.setValue(total);
+    }
+
+    /**
      * Processa todos os grupos de imposto de um item.
      *
      * <p>Para cada grupo ({@link Tax}), chama {@link TaxCalculator#calculate}
@@ -164,7 +186,7 @@ public class PaymentNoteService {
      * no mesmo item (o que indicaria uma duplicação acidental do mesmo imposto).
      * <b>Permitido:</b> mesmo {@code codEfd} com {@code codigoReceita} diferentes.
      */
-    private void processarImpostosDoItem(PaymentNoteItem item, java.time.LocalDate dataLiquidacao) {
+    private void processarImpostosDoItem(PaymentNoteItem item, LocalDate dataLiquidacao) {
         List<Tax> taxes = item.getTaxes();
 
         validarDuplicidadeDeGrupos(taxes);

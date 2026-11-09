@@ -128,6 +128,26 @@ function serializeItem(item: PaymentNoteItemDto) {
   };
 }
 
+/**
+ * Monta o payload compartilhado por POST, PUT e prévia.
+ * Evita repetir a montagem em três funções.
+ */
+function buildPaymentNotePayload(dto: PaymentNoteDto, includeId = false) {
+  return {
+    ...(includeId && dto.id !== undefined ? { id: dto.id } : {}),
+    numeroNp: dto.numeroNp,
+    dataLiquidacao: formatDate(dto.dataLiquidacao),
+    empresa: { cnpj: dto.empresa.cnpj },
+    docOrigin: dto.docOrigin,
+    status: dto.status,
+    items: (dto.items ?? []).map(serializeItem),
+    // datePayment só é aceito pelo backend quando status === 'PAGA'
+    ...(dto.status === 'PAGA' && dto.datePayment
+      ? { datePayment: formatDate(dto.datePayment) }
+      : {}),
+  };
+}
+
 // ── PaymentNoteEmpenho ────────────────────────────────────────────────────────
 
 export async function getAllPaymentEmpenhos(
@@ -262,19 +282,19 @@ export async function getAllNp(
  */
 export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<PaymentNoteDto>> {
   try {
-    const payload = {
-      numeroNp: dto.numeroNp,
-      dataLiquidacao: formatDate(dto.dataLiquidacao),
-      empresa: { cnpj: dto.empresa.cnpj },
-      docOrigin: dto.docOrigin,
-      status: dto.status,
-      items: (dto.items ?? []).map(serializeItem),
-      // datePayment só é aceito pelo backend quando status === 'PAGA'
-      ...(dto.status === 'PAGA' && dto.datePayment
-        ? { datePayment: formatDate(dto.datePayment) }
-        : {}),
-    };
-    const res = await api.post<PaymentNoteDto>('/API/Np', payload);
+    const res = await api.post<PaymentNoteDto>('/API/Np', buildPaymentNotePayload(dto));
+    return { data: res.data, status: res.status, errorMessage: null };
+  } catch (e) { return handleError(e); }
+}
+
+/**
+ * POST /API/Np/preview
+ * Executa o mesmo cálculo de impostos do save, mas sem persistir.
+ * A resposta tem o mesmo formato de PaymentNoteDto.
+ */
+export async function previewPaymentNote(dto: PaymentNoteDto): Promise<ApiResult<PaymentNoteDto>> {
+  try {
+    const res = await api.post<PaymentNoteDto>('/API/Np/preview', buildPaymentNotePayload(dto));
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
@@ -286,20 +306,10 @@ export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<Pa
  */
 export async function updatePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<PaymentNoteDto>> {
   try {
-    const payload = {
-      id: dto.id,
-      numeroNp: dto.numeroNp,
-      dataLiquidacao: formatDate(dto.dataLiquidacao),
-      empresa: { cnpj: dto.empresa.cnpj },
-      docOrigin: dto.docOrigin,
-      status: dto.status,
-      items: (dto.items ?? []).map(serializeItem),
-      // datePayment só é aceito pelo backend quando status === 'PAGA'
-      ...(dto.status === 'PAGA' && dto.datePayment
-        ? { datePayment: formatDate(dto.datePayment) }
-        : {}),
-    };
-    const res = await api.put<PaymentNoteDto>(`/API/Np/${dto.id}`, payload);
+    const res = await api.put<PaymentNoteDto>(
+      `/API/Np/${dto.id}`,
+      buildPaymentNotePayload(dto, true),
+    );
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }

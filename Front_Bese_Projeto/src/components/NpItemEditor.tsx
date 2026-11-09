@@ -117,6 +117,68 @@ export function editStateToItem(s: ItemEditState): PaymentNoteItemDto {
   };
 }
 
+/**
+ * Limpa a prévia de um grupo.
+ * Usar sempre que um input que afeta o cálculo mudar.
+ */
+function semPrevia(group: TaxGroupState): TaxGroupState {
+  return {
+    ...group,
+    backendItems: [],
+    manualItems: [],
+    isManualAdjustment: false,
+  };
+}
+
+/**
+ * Aplica o resultado da prévia (itens retornados pelo backend) sobre o estado
+ * de edição atual.
+ *
+ * Regras:
+ * - O backend devolve os itens na mesma ordem enviada; cada item devolve os
+ *   grupos de imposto na mesma ordem. O pareamento é por índice.
+ * - Se o grupo está em ajuste manual, preservamos o baseline automático
+ *   (backendItems) e apenas confirmamos os valores manuais (manualItems).
+ * - Se o grupo está automático, atualizamos baseline e valores manuais.
+ */
+export function applyPreviewToItems(
+  current: ItemEditState[],
+  previewItems: PaymentNoteItemDto[] | undefined,
+): ItemEditState[] {
+  if (!previewItems || previewItems.length === 0) return current;
+
+  return current.map((item, idx) => {
+    const previewItem = previewItems[idx];
+    if (!previewItem) return item;
+
+    const previewTaxes = resolveTaxDtos(previewItem);
+
+    const taxGroups = item.taxGroups.map((group, groupIdx) => {
+      const previewTax = previewTaxes[groupIdx];
+      if (!previewTax) return group;
+
+      const calculado = (previewTax.calculatedItems ?? []).map(i => ({ ...i }));
+
+      if (group.isManualAdjustment) {
+        return {
+          ...group,
+          // mantém o baseline automático anterior para o botão "Restaurar"
+          manualItems: calculado.length > 0 ? calculado : group.manualItems,
+        };
+      }
+
+      return {
+        ...group,
+        backendItems: calculado,
+        manualItems: calculado.map(i => ({ ...i })),
+        isManualAdjustment: false,
+      };
+    });
+
+    return { ...item, taxGroups };
+  });
+}
+
 // ── Sub-componente: editor de um grupo de imposto ─────────────────────────────
 
 interface TaxGroupEditorProps {
@@ -212,14 +274,12 @@ function TaxGroupEditor({ groupIdx, group, totalGroups, dataLiquidacao, onChange
           label="Tipo de Tributação"
           value={group.taxTipo}
           onChange={e => {
-            set({
+            set(semPrevia({
+              ...group,
               taxTipo: e.target.value as OptanteStatus,
               codEfd: '',
               codigoReceita: null,
-              backendItems: [],
-              manualItems: [],
-              isManualAdjustment: false,
-            });
+            }));
             setOpcoes([]);
             setOpcoesError(null);
             lastFetchedKey.current = '';
@@ -241,7 +301,11 @@ function TaxGroupEditor({ groupIdx, group, totalGroups, dataLiquidacao, onChange
               placeholder="Ex: 1708"
               value={group.codEfd}
               onChange={e => {
-                set({ codEfd: e.target.value, codigoReceita: null });
+                set(semPrevia({
+                  ...group,
+                  codEfd: e.target.value,
+                  codigoReceita: null,
+                }));
                 lastFetchedKey.current = '';
                 setOpcoes([]);
                 setOpcoesError(null);
@@ -266,7 +330,10 @@ function TaxGroupEditor({ groupIdx, group, totalGroups, dataLiquidacao, onChange
               <Select
                 label="Código de Receita *"
                 value={group.codigoReceita != null ? String(group.codigoReceita) : ''}
-                onChange={e => set({ codigoReceita: e.target.value ? Number(e.target.value) : null })}
+                onChange={e => set(semPrevia({
+                  ...group,
+                  codigoReceita: e.target.value ? Number(e.target.value) : null,
+                }))}
                 options={opcoes.map(o => ({
                   value: String(o.codigoReceita),
                   label: `${o.codigoReceita} — ${o.description}`,
@@ -414,7 +481,14 @@ export function NpItemEditor({
           type="text"
           placeholder="Ex: 1.500,00"
           value={item.value}
-          onChange={e => set({ value: e.target.value })}
+          onChange={e => {
+            const value = e.target.value;
+            set({
+              value,
+              // O cálculo depende do valor: invalida a prévia de todos os grupos.
+              taxGroups: item.taxGroups.map(semPrevia),
+            });
+          }}
         />
       </div>
 
