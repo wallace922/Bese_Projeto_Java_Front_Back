@@ -4,6 +4,7 @@ import TaxAdjustmentPanel from './TaxAdjustmentPanel';
 import Input from './Input';
 import Select from './Select';
 import Alert from './Alert';
+import Button from './Button';
 import { findEmpresaByCnpj, getOpcoesReceitaPorEfd } from '../services/api';
 import { parseBRCurrency } from '../lib/utils';
 
@@ -188,9 +189,11 @@ interface TaxGroupEditorProps {
   dataLiquidacao?: string;
   onChange: (groupIdx: number, next: TaxGroupState) => void;
   onRemove: (groupIdx: number) => void;
+  onPreview?: () => void;
+  previewLoading?: boolean;
 }
 
-function TaxGroupEditor({ groupIdx, group, totalGroups, dataLiquidacao, onChange, onRemove }: TaxGroupEditorProps) {
+function TaxGroupEditor({ groupIdx, group, totalGroups, dataLiquidacao, onChange, onRemove, onPreview, previewLoading }: TaxGroupEditorProps) {
   const [opcoes, setOpcoes] = useState<TaxRuleOption[]>([]);
   const [opcoesLoading, setOpcoesLoading] = useState(false);
   const [opcoesError, setOpcoesError] = useState<string | null>(null);
@@ -293,8 +296,8 @@ function TaxGroupEditor({ groupIdx, group, totalGroups, dataLiquidacao, onChange
 
       {group.taxTipo === 'NAO_OPTANTE' && (
         <div className="animate-fadeIn space-y-3">
-          {/* Campo Cód. EFD */}
-          <div className="flex gap-3 items-end">
+          {/* Campo Cód. EFD + Prévia */}
+          <div className="flex flex-wrap gap-3 items-end">
             <Input
               label="Cód. EFD"
               type="number"
@@ -313,6 +316,18 @@ function TaxGroupEditor({ groupIdx, group, totalGroups, dataLiquidacao, onChange
               onBlur={() => fetchOpcoes()}
               className="w-36"
             />
+            {onPreview && (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={previewLoading}
+                disabled={!group.codEfd || previewLoading}
+                onClick={onPreview}
+                className="h-8 min-w-0 px-3"
+              >
+                Prévia
+              </Button>
+            )}
             {opcoesLoading && (
               <span className="text-xs text-stone-500 animate-pulse mb-2">
                 Buscando regras…
@@ -383,6 +398,10 @@ interface NpItemEditorProps {
   nomeEmpresaNp?: string;
   onChange: (idx: number, next: ItemEditState) => void;
   onRemove: (idx: number) => void;
+  /** Callback para calcular a prévia dos impostos */
+  onPreview?: () => void;
+  /** Indica se a prévia está carregando */
+  previewLoading?: boolean;
 }
 
 export function NpItemEditor({
@@ -393,6 +412,8 @@ export function NpItemEditor({
   nomeEmpresaNp,
   onChange,
   onRemove,
+  onPreview,
+  previewLoading,
 }: NpItemEditorProps) {
   // ── Estado do lookup de beneficiário ────────────────────────────────────────
   const [beneficiarioLoading, setBeneficiarioLoading] = useState(false);
@@ -508,6 +529,8 @@ export function NpItemEditor({
               dataLiquidacao={dataLiquidacao}
               onChange={setGroup}
               onRemove={removeGroup}
+              onPreview={onPreview}
+              previewLoading={previewLoading}
             />
           ))}
         </div>

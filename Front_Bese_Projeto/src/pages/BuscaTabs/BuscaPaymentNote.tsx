@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import Alert from '../../components/Alert';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import Select from '../../components/Select';
@@ -16,6 +15,7 @@ import { SectionTitle, TableContainer, applyCnpjMask } from './Shared';
 import StatusBadge from '../../components/StatusBadge';
 import { useEntitySearch } from '../../hooks/useEntitySearch';
 import { useToast } from '../../contexts/ToastContext';
+
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
@@ -38,7 +38,6 @@ export default function BuscaPaymentNote() {
   // Modal
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
   const { error: toastError, success: toastSuccess } = useToast();
   const [highlightId, setHighlightId] = useState<number | null>(null);
 
@@ -69,7 +68,6 @@ export default function BuscaPaymentNote() {
     setCnpjValid(true);
     setCnpjError(null);
     setDatePayment(np.datePayment ? toInputDate(np.datePayment) : '');
-    setPreviewError(null);
     setPreviewLoading(false);
     // Popula os itens editáveis a partir da NP carregada
     const items = np.items && np.items.length > 0
@@ -145,17 +143,14 @@ export default function BuscaPaymentNote() {
   }
 
   const openConfirm = () => {
-    setPreviewError(null);
     const msg = validarFormulario();
     if (msg) { toastError(msg); return; }
     setConfirmOpen(true);
   };
 
   async function handlePreview() {
-    setPreviewError(null);
     const msg = validarFormulario();
     if (msg) {
-      setPreviewError(msg);
       toastError(msg);
       return;
     }
@@ -166,7 +161,6 @@ export default function BuscaPaymentNote() {
 
     if (!result.data) {
       const err = result.errorMessage ?? 'Não foi possível calcular a prévia.';
-      setPreviewError(err);
       toastError(err);
       return;
     }
@@ -300,8 +294,8 @@ export default function BuscaPaymentNote() {
           </div>
 
           {/* Itens com tributação — editáveis */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
               <SectionTitle>
                 Itens e Tributação
                 {totalValorItens > 0 && (
@@ -311,7 +305,7 @@ export default function BuscaPaymentNote() {
                 )}
               </SectionTitle>
             </div>
-            <div className="space-y-3 max-w-3xl">
+            <div className="space-y-3">
               {editItems.map((item, idx) => (
                 <NpItemEditor
                   key={idx}
@@ -322,6 +316,8 @@ export default function BuscaPaymentNote() {
                   nomeEmpresaNp={empresaNome || undefined}
                   onChange={updateItem}
                   onRemove={removeItem}
+                  onPreview={handlePreview}
+                  previewLoading={previewLoading}
                 />
               ))}
               <button
@@ -332,23 +328,9 @@ export default function BuscaPaymentNote() {
                 + Adicionar Item
               </button>
             </div>
-          </div>
 
-          <div className="space-y-3">
-            {previewError && (
-              <Alert variant="error" message={previewError} onClose={() => setPreviewError(null)} />
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                loading={previewLoading}
-                disabled={saving || previewLoading || cnpjValid === false || cnpjLoading}
-                onClick={handlePreview}
-              >
-                Prévia dos Impostos
-              </Button>
-
+            {/* Ações */}
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-white/10">
               <Button
                 variant="primary"
                 loading={saving}
@@ -362,7 +344,6 @@ export default function BuscaPaymentNote() {
                 variant="ghost"
                 onClick={() => {
                   setEditing(false);
-                  setPreviewError(null);
                 }}
               >
                 Cancelar
